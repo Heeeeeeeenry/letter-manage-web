@@ -273,6 +273,7 @@ const goToPage = (page) => {
 }
 
 const loadLetters = async () => {
+  console.log('loadLetters called');
   loading.value = true
   try {
     const args = {
@@ -288,21 +289,42 @@ const loadLetters = async () => {
     if (filters.value.keyword) args['搜索关键字'] = filters.value.keyword
 
     const res = await getList(args)
+    console.log('res', res)
     if (res.success) {
-      letters.value = res.data?.list || res.data || []
+      // Map backend fields to frontend field names
+      const rawList = res.data?.list || res.data || []
+      letters.value = rawList.map(letter => ({
+        '信件编号': letter.letter_no,
+        '群众姓名': letter.citizen_name,
+        '手机号': letter.phone,
+        '来源渠道': letter.channel,
+        '信件一级分类': letter.category_l1,
+        '信件二级分类': letter.category_l2,
+        '信件三级分类': letter.category_l3,
+        '信件状态': letter.current_status,
+        '来信时间': letter.received_at,
+        // Include original object for debugging
+        _raw: letter
+      }))
       totalCount.value = res.data?.total || res.total || 0
     }
-  } catch {}
+  } catch (err) {
+    console.error('loadLetters error:', err)
+  }
   loading.value = false
 }
 
 const loadCategories = async () => {
+  console.log('loadCategories called');
   try {
     const res = await getCategories()
+    console.log('categories res', res)
     if (res.success) {
       categoryData.value = res.data || {}
     }
-  } catch {}
+  } catch (err) {
+    console.error('loadCategories error:', err)
+  }
 }
 
 const viewDetail = (letterNo) => {
@@ -311,6 +333,7 @@ const viewDetail = (letterNo) => {
 }
 
 onMounted(async () => {
+  console.log('LettersView mounted')
   await loadCategories()
   await loadLetters()
 })

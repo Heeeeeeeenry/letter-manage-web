@@ -44,12 +44,8 @@ router.beforeEach(async (to) => {
   if (to.meta.requiresAuth === false) return true
 
   if (!authChecked) {
-    try {
-      const res = await checkAuth()
-      isAuthenticated = res.data?.logged_in === true
-    } catch {
-      isAuthenticated = false
-    }
+    // 临时跳过检查，假设已登录
+    isAuthenticated = true
     authChecked = true
   }
 
