@@ -168,10 +168,64 @@ const formatJsonVal = (val) => {
 
 const load = async () => {
   loading.value = true
+  console.log('Loading letter detail for:', props.letterNo)
   try {
     const res = await getDetail(props.letterNo)
-    if (res.success) letterData.value = res.data
-  } catch {}
+    console.log('Detail API response:', res)
+    if (res.success && res.data) {
+      // Transform backend nested structure to frontend flat structure
+      const letter = res.data.letter || {}
+      const flow = res.data.flow || {}
+      const history = res.data.history || []
+      const files = res.data.files || {}
+      
+      console.log('Raw letter data:', letter)
+      console.log('Raw flow data:', flow)
+      
+      // Build flat object with Chinese keys expected by the template
+      letterData.value = {
+        '信件编号': letter.letter_no || '',
+        '来信时间': letter.received_at || '',
+        '群众姓名': letter.citizen_name || '',
+        '手机号': letter.phone || '',
+        '身份证号': letter.id_card || '',
+        '来源渠道': letter.channel || '',
+        '信件状态': letter.current_status || '',
+        '信件一级分类': letter.category_l1 || '',
+        '信件二级分类': letter.category_l2 || '',
+        '信件三级分类': letter.category_l3 || '',
+        '诉求内容': letter.content || '',
+        '专项关注标签': letter.special_tags || [],
+        '流转记录': (flow.flow_records || []).map(record => {
+          // Process remark field: convert object to JSON string, keep string as is
+          let remark = record['备注'] || ''
+          if (remark && typeof remark === 'object') {
+            try {
+              remark = JSON.stringify(remark, null, 2)
+            } catch {}
+          }
+          
+          return {
+            '操作类型': record['操作类型'] || '',
+            '操作人': record['操作人姓名'] || record['操作人警号'] || '',
+            '操作时间': record['操作时间'] || '',
+            '操作单位': record['目标单位'] || record['操作后单位'] || record['操作前单位'] || '',
+            '备注': remark,
+            // Include all original fields for debugging
+            _raw: record
+          }
+        }),
+        // Include raw data for debugging
+        _rawLetter: letter,
+        _rawFlow: flow
+      }
+      console.log('Transformed letterData:', letterData.value)
+    } else {
+      console.error('API response missing success or data:', res)
+    }
+  } catch (e) {
+    console.error('Failed to load letter detail:', e)
+  }
   loading.value = false
 }
 

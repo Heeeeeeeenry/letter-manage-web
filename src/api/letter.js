@@ -42,6 +42,12 @@ export const getCategories = () =>
 export const getDispatchList = (args) =>
   http.post('/api/letter/', { order: 'get_dispatch_list', args })
 
+export const analyzeLetter = (letterNo) =>
+  http.post('/api/letter/', { order: 'analyze_letter', args: { letter_no: letterNo } })
+
+export const autoDispatch = (args) =>
+  http.post('/api/letter/', { order: 'auto_dispatch', args })
+
 export const getProcessingList = (args) =>
   http.post('/api/letter/', { order: 'get_processing_list', args })
 

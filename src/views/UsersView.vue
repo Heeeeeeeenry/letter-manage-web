@@ -45,8 +45,8 @@
                 </span>
               </td>
               <td>
-                <span class="wp-badge" :class="user['状态'] === '已激活' || user['状态'] === '正常' || user.status === 'active' ? 'wp-badge-green' : 'wp-badge-red'">
-                  {{ user['状态'] || (user.status === 'active' ? '正常' : '停用') }}
+                <span class="wp-badge" :class="user['状态'] === '已激活' || user.is_active === true ? 'wp-badge-green' : 'wp-badge-red'">
+                  {{ user['状态'] || (user.is_active === true ? '已激活' : '已禁用') }}
                 </span>
               </td>
               <td>
@@ -87,7 +87,14 @@
           <div><label class="text-sm font-medium text-gray-700 mb-1 block">姓名</label><input class="wp-input" v-model="form.name" placeholder="请输入姓名" /></div>
           <div><label class="text-sm font-medium text-gray-700 mb-1 block">警号</label><input class="wp-input" v-model="form.policeNumber" placeholder="请输入警号" :readonly="!!editingUser" /></div>
           <div v-if="!editingUser"><label class="text-sm font-medium text-gray-700 mb-1 block">密码</label><input type="password" class="wp-input" v-model="form.password" placeholder="请输入初始密码" /></div>
-          <div><label class="text-sm font-medium text-gray-700 mb-1 block">所属单位</label><input class="wp-input" v-model="form.org" placeholder="请输入单位" /></div>
+          <div><label class="text-sm font-medium text-gray-700 mb-1 block">所属单位</label>
+            <select class="wp-select" v-model="form.org">
+              <option value="">请选择单位</option>
+              <option v-for="u in units" :key="u.system_code || u.id" :value="u.fullName">
+                {{ u.fullName }}
+              </option>
+            </select>
+          </div>
           <div>
             <label class="text-sm font-medium text-gray-700 mb-1 block">权限级别</label>
             <select class="wp-select" v-model="form.role">
@@ -110,7 +117,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getUserList, createUser, updateUser, deleteUser, resetPassword } from '@/api/setting'
+import { getUserList, createUser, updateUser, deleteUser, resetPassword, getOrgList } from '@/api/setting'
 
 const users = ref([])
 const totalCount = ref(0)
@@ -122,6 +129,7 @@ const submitting = ref(false)
 const searchKeyword = ref('')
 const showModal = ref(false)
 const editingUser = ref(null)
+const units = ref([])
 
 const form = ref({ name: '', policeNumber: '', password: '', org: '', role: 'UNIT' })
 
@@ -142,6 +150,20 @@ const goPage = (p) => {
   if (p < 1 || p > totalPages.value) return
   page.value = p
   loadUsers()
+}
+
+const loadUnits = async () => {
+  try {
+    const res = await getOrgList()
+    if (res.success) {
+      // 获取全部单位列表（无分页，用于下拉选择）
+      const list = res.data?.list || res.data || []
+      units.value = list.map(u => {
+        const parts = [u.level1, u.level2, u.level3].filter(Boolean)
+        return { ...u, fullName: parts.join(' / ') }
+      })
+    }
+  } catch {}
 }
 
 const loadUsers = async () => {
@@ -165,12 +187,21 @@ const openCreateModal = () => {
 
 const openEditModal = (user) => {
   editingUser.value = user
+  const userUnit = user['所属单位'] || user.unit_name || user.org || ''
+  // 在 units 列表中查找匹配的单位（按 level3/level2/level1 匹配）
+  let matchedFullName = ''
+  if (userUnit) {
+    const match = units.value.find(u =>
+      u.level3 === userUnit || u.level2 === userUnit || u.level1 === userUnit
+    )
+    if (match) matchedFullName = match.fullName
+  }
   form.value = {
     name: user['姓名'] || user.name || '',
     policeNumber: user['警号'] || user.police_number || '',
     password: '',
-    org: user['所属单位'] || user.org || '',
-    role: user['权限级别'] || user.role || 'UNIT',
+    org: matchedFullName,
+    role: user.role || user['权限级别'] || 'UNIT',
   }
   showModal.value = true
 }
@@ -183,7 +214,10 @@ const closeModal = () => {
 const handleSave = async () => {
   submitting.value = true
   try {
-    const data = { name: form.value.name, police_number: form.value.policeNumber, org: form.value.org, role: form.value.role }
+    // 从 fullName 中提取末级单位名（如 "北京市/海淀分局/中关村派出所" → "中关村派出所"）
+    const parts = form.value.org.split(' / ')
+    const unitName = parts[parts.length - 1]
+    const data = { name: form.value.name, police_number: form.value.policeNumber, unit_name: unitName, role: form.value.role }
     if (editingUser.value) {
       await updateUser({ ...data, id: editingUser.value.id || editingUser.value['警号'] })
     } else {
@@ -212,5 +246,5 @@ const handleDelete = async (user) => {
   } catch {}
 }
 
-onMounted(loadUsers)
+onMounted(() => { loadUsers(); loadUnits() })
 </script>

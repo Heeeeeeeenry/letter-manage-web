@@ -16,29 +16,44 @@
     </div>
 
     <div class="wp-panel flex-1">
-      <div class="wp-panel-body">
+      <div class="wp-panel-body p-0">
         <div v-if="loading" class="text-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>加载中...</div>
         <div v-else-if="!items.length" class="text-center py-12 text-gray-400">
           <i class="fas fa-star text-4xl mb-2 block text-gray-200"></i>暂无专项关注标签
         </div>
-        <div v-else class="flex flex-wrap gap-3">
-          <div
-            v-for="item in items"
-            :key="item.id"
-            class="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-purple-200 transition group"
-          >
-            <span class="wp-badge wp-badge-purple">{{ item['专项关注标题'] || item.title }}</span>
-            <span class="text-sm text-gray-600">{{ item['专项关注描述'] || item.description }}</span>
-            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-              <button class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-500" @click="openEditModal(item)">
-                <i class="fas fa-edit text-xs"></i>
-              </button>
-              <button class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500" @click="handleDelete(item)">
-                <i class="fas fa-trash text-xs"></i>
-              </button>
-            </div>
-          </div>
-        </div>
+        <table v-else class="wp-table w-full">
+          <thead>
+            <tr>
+              <th style="width:60px">ID</th>
+              <th style="width:180px">标签名称</th>
+              <th>描述</th>
+              <th style="width:170px">创建时间</th>
+              <th style="width:100px" class="text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in items" :key="item.id" class="hover:bg-gray-50">
+              <td class="text-gray-500 text-xs font-mono">{{ item.id }}</td>
+              <td>
+                <span class="wp-badge wp-badge-purple">{{ item['专项关注标题'] || item.tag_name || item.title }}</span>
+              </td>
+              <td class="text-sm text-gray-600 max-w-0">
+                <span class="truncate block">{{ item['专项关注描述'] || item.description || '-' }}</span>
+              </td>
+              <td class="text-xs text-gray-400 font-mono">{{ item.created_at ? formatTime(item.created_at) : '-' }}</td>
+              <td class="text-center">
+                <div class="flex gap-1 justify-center">
+                  <button class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-500" @click="openEditModal(item)" title="编辑">
+                    <i class="fas fa-edit text-xs"></i>
+                  </button>
+                  <button class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-100 text-red-500" @click="handleDelete(item)" title="删除">
+                    <i class="fas fa-trash text-xs"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -75,6 +90,13 @@ const showModal = ref(false)
 const editingItem = ref(null)
 const form = ref({ title: '', description: '' })
 
+const formatTime = (t) => {
+  if (!t) return '-'
+  const d = new Date(t)
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 const openCreateModal = () => {
   editingItem.value = null
   form.value = { title: '', description: '' }
@@ -83,7 +105,7 @@ const openCreateModal = () => {
 
 const openEditModal = (item) => {
   editingItem.value = item
-  form.value = { title: item['专项关注标题'] || item.title || '', description: item['专项关注描述'] || item.description || '' }
+  form.value = { title: item['专项关注标题'] || item.tag_name || item.title || '', description: item['专项关注描述'] || item.description || '' }
   showModal.value = true
 }
 
@@ -104,7 +126,7 @@ const handleSave = async () => {
 }
 
 const handleDelete = async (item) => {
-  if (!confirm(`确认删除标签"${item['专项关注标题'] || item.title}"？`)) return
+  if (!confirm(`确认删除标签"${item['专项关注标题'] || item.tag_name || item.title}"？`)) return
   try { await deleteSpecialFocus({ id: item.id }); load() } catch {}
 }
 

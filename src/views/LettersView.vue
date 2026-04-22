@@ -448,8 +448,12 @@ const loadCategories = async () => {
 }
 
 const viewDetail = (letterNo) => {
+  console.log('viewDetail called with letterNo:', letterNo)
   selectedLetterNo.value = letterNo
   detailVisible.value = true
+  console.log('detailVisible set to:', detailVisible.value)
+  window.debugDetailVisible = detailVisible.value
+  window.debugSelectedLetterNo = selectedLetterNo.value
 }
 
 onMounted(async () => {

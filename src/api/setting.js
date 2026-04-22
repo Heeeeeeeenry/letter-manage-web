@@ -40,16 +40,16 @@ export const deleteSpecialFocus = (args) =>
   http.post('/api/setting/', { order: 'delete_special_focus', args })
 
 export const getCategoryList = () =>
-  http.post('/api/setting/', { order: 'get_category_list', args: {} })
+  http.post('/api/setting/', { order: 'category_list', args: {} })
 
 export const createCategory = (args) =>
-  http.post('/api/setting/', { order: 'create_category', args })
+  http.post('/api/setting/', { order: 'category_create', args })
 
 export const updateCategory = (args) =>
-  http.post('/api/setting/', { order: 'update_category', args })
+  http.post('/api/setting/', { order: 'category_update', args })
 
 export const deleteCategory = (args) =>
-  http.post('/api/setting/', { order: 'delete_category', args })
+  http.post('/api/setting/', { order: 'category_delete', args })
 
 export const changePassword = (args) =>
   http.post('/api/setting/', { order: 'change_password', args })

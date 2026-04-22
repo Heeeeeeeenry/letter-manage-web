@@ -161,7 +161,25 @@ const loadData = async () => {
     if (res.success) {
       const dict = {}
       const list = res.data?.list || res.data || []
-      list.forEach(l => { dict[l['信件编号']] = l })
+      list.forEach(letter => {
+        // Map backend fields (English) to frontend field names (Chinese)
+        const mapped = {
+          '信件编号': letter.letter_no,
+          '群众姓名': letter.citizen_name,
+          '手机号': letter.phone,
+          '身份证号': letter.id_card,
+          '诉求内容': letter.content,
+          '信件一级分类': letter.category_l1,
+          '信件二级分类': letter.category_l2,
+          '信件三级分类': letter.category_l3,
+          '信件状态': letter.current_status,
+          '来信时间': letter.received_at,
+          '当前信件处理单位': letter.current_unit,
+          // Keep original object for debugging
+          _raw: letter
+        }
+        dict[mapped['信件编号']] = mapped
+      })
       letters.value = dict
     }
   } catch {}
