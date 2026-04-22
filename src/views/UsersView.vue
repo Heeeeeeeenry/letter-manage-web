@@ -45,7 +45,7 @@
                 </span>
               </td>
               <td>
-                <span class="wp-badge" :class="user['状态'] === '正常' || user.status === 'active' ? 'wp-badge-green' : 'wp-badge-red'">
+                <span class="wp-badge" :class="user['状态'] === '已激活' || user['状态'] === '正常' || user.status === 'active' ? 'wp-badge-green' : 'wp-badge-red'">
                   {{ user['状态'] || (user.status === 'active' ? '正常' : '停用') }}
                 </span>
               </td>
@@ -128,8 +128,8 @@ const form = ref({ name: '', policeNumber: '', password: '', org: '', role: 'UNI
 let debounceTimer = null
 
 const roleBadge = (role) => {
-  if (role === 'CITY') return 'wp-badge-red'
-  if (role === 'DISTRICT') return 'wp-badge-blue'
+  if (role === 'CITY' || role === '市级') return 'wp-badge-red'
+  if (role === 'DISTRICT' || role === '区级') return 'wp-badge-blue'
   return 'wp-badge-gray'
 }
 

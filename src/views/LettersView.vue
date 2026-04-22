@@ -13,50 +13,114 @@
 
     <!-- Filter panel -->
     <div class="wp-panel p-4" id="letters-filter-panel">
-      <div class="flex flex-wrap gap-3 items-center">
-        <!-- Status filters -->
-        <div class="flex gap-2 flex-wrap" id="letters-status-filters">
-          <button
-            v-for="s in statusOptions"
-            :key="s.value"
-            class="wp-filter-chip"
-            :class="{ active: filters.status === s.value }"
-            @click="setStatus(s.value)"
-          >{{ s.label }}</button>
-        </div>
-
-        <div class="flex-1 flex gap-2 flex-wrap justify-end">
+      <div class="flex flex-col gap-4">
+        <!-- First row: status, categories, search -->
+        <div class="flex flex-wrap gap-3 items-center">
+          <!-- Status dropdown -->
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">状态：</span>
+            <select class="wp-select" style="width:120px" v-model="filters.status" @change="doSearch">
+              <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+            </select>
+          </div>
           <!-- Category selects -->
-          <select class="wp-select" style="width:120px" v-model="filters.level1" @change="onLevel1Change">
-            <option value="">全部分类</option>
-            <option v-for="k in Object.keys(categoryData)" :key="k" :value="k">{{ k }}</option>
-          </select>
-          <select class="wp-select" style="width:120px" v-model="filters.level2" @change="onLevel2Change">
-            <option value="">全部</option>
-            <option v-for="k in level2Options" :key="k" :value="k">{{ k }}</option>
-          </select>
-          <select class="wp-select" style="width:120px" v-model="filters.level3" @change="onLevel3Change">
-            <option value="">全部</option>
-            <option v-for="k in level3Options" :key="k" :value="k">{{ k }}</option>
-          </select>
-
-          <!-- Search -->
-          <div class="relative">
-            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">分类：</span>
+            <select class="wp-select" style="width:120px" v-model="filters.level1" @change="onLevel1Change">
+              <option value="">全部分类</option>
+              <option v-for="k in Object.keys(categoryData)" :key="k" :value="k">{{ k }}</option>
+            </select>
+            <select class="wp-select" style="width:120px" v-model="filters.level2" @change="onLevel2Change">
+              <option value="">全部</option>
+              <option v-for="k in level2Options" :key="k" :value="k">{{ k }}</option>
+            </select>
+            <select class="wp-select" style="width:120px" v-model="filters.level3" @change="onLevel3Change">
+              <option value="">全部</option>
+              <option v-for="k in level3Options" :key="k" :value="k">{{ k }}</option>
+            </select>
+          </div>
+          <!-- Search box -->
+          <div class="flex-1 flex justify-end">
+            <div class="relative">
+              <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+              <input
+                v-model="filters.keyword"
+                class="wp-input pl-12"
+                style="width:200px"
+                placeholder="搜索关键词..."
+                @input="debounceSearch"
+                @keydown.enter="doSearch"
+              />
+            </div>
+          </div>
+        </div>
+        <!-- Second row: field filters -->
+        <div class="flex flex-wrap gap-3 items-center">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">编号：</span>
             <input
-              v-model="filters.keyword"
-              class="wp-input pl-8"
-              style="width:200px"
-              placeholder="搜索关键词..."
+              v-model="filters.letter_no"
+              class="wp-input"
+              style="width:150px"
+              placeholder="信件编号"
               @input="debounceSearch"
               @keydown.enter="doSearch"
             />
           </div>
-
-          <!-- Page size -->
-          <select class="wp-select" style="width:90px" v-model="pageSize" @change="onPageSizeChange">
-            <option v-for="n in [10,20,50]" :key="n" :value="n">{{ n }}条/页</option>
-          </select>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">来信人：</span>
+            <input
+              v-model="filters.citizen_name"
+              class="wp-input"
+              style="width:120px"
+              placeholder="姓名"
+              @input="debounceSearch"
+              @keydown.enter="doSearch"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">电话：</span>
+            <input
+              v-model="filters.phone"
+              class="wp-input"
+              style="width:130px"
+              placeholder="手机号"
+              @input="debounceSearch"
+              @keydown.enter="doSearch"
+            />
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">身份证号：</span>
+            <input
+              v-model="filters.id_card"
+              class="wp-input"
+              style="width:180px"
+              placeholder="身份证号码"
+              @input="debounceSearch"
+              @keydown.enter="doSearch"
+            />
+          </div>
+        </div>
+        <!-- Third row: time filters -->
+        <div class="flex flex-wrap gap-3 items-center">
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">时间段：</span>
+            <input
+              type="date"
+              v-model="filters.start_time"
+              class="wp-input"
+              style="width:140px"
+              @input="debounceSearch"
+            />
+            <span class="text-gray-400">至</span>
+            <input
+              type="date"
+              v-model="filters.end_time"
+              class="wp-input"
+              style="width:140px"
+              @input="debounceSearch"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -118,9 +182,14 @@
 
       <!-- Pagination -->
       <div class="flex items-center justify-between px-4 py-3 border-t border-gray-100" id="letters-pagination">
-        <span class="text-sm text-gray-500">
-          共 {{ totalCount }} 条记录，第 {{ currentPage }}/{{ totalPages }} 页
-        </span>
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-gray-500">
+            共 {{ totalCount }} 条记录，第 {{ currentPage }}/{{ totalPages }} 页
+          </span>
+          <select class="wp-select text-sm" style="width:90px" v-model="pageSize" @change="onPageSizeChange">
+            <option v-for="n in [10,20,50]" :key="n" :value="n">{{ n }}条/页</option>
+          </select>
+        </div>
         <div class="wp-pagination">
           <button class="wp-page-btn" :disabled="currentPage <= 1" @click="goToPage(1)">
             <i class="fas fa-angle-double-left text-xs"></i>
@@ -172,15 +241,32 @@ const filters = ref({
   level2: '',
   level3: '',
   keyword: '',
+  letter_no: '',
+  citizen_name: '',
+  phone: '',
+  id_card: '',
+  start_time: '',
+  end_time: '',
 })
 
 const statusOptions = [
   { value: '', label: '全部' },
   { value: '预处理', label: '预处理' },
-  { value: '正在处理', label: '处理中' },
-  { value: '正在反馈', label: '反馈中' },
-  { value: '已完成', label: '已完成' },
-  { value: '已无效', label: '已无效' },
+  { value: '市局已签收', label: '市局已签收' },
+  { value: '区县局已签收', label: '区县局已签收' },
+  { value: '办理单位已签收', label: '办理单位已签收' },
+  { value: '市局正在处理', label: '市局正在处理' },
+  { value: '区县局正在处理', label: '区县局正在处理' },
+  { value: '办理单位正在处理', label: '办理单位正在处理' },
+  { value: '已办结', label: '已办结' },
+]
+
+const fieldOptions = [
+  { value: '', label: '选择字段' },
+  { value: 'letter_no', label: '信件编号' },
+  { value: 'citizen_name', label: '来信人' },
+  { value: 'phone', label: '电话' },
+  { value: 'id_card', label: '身份证号' },
 ]
 
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
@@ -277,16 +363,22 @@ const loadLetters = async () => {
   loading.value = true
   try {
     const args = {
-      limit: pageSize.value,
       page: currentPage.value,
-      order_by: '来信时间',
+      page_size: pageSize.value,
+      order_by: 'received_at',
       order_desc: true,
     }
-    if (filters.value.level1) args['信件一级分类'] = filters.value.level1
-    if (filters.value.level2) args['信件二级分类'] = filters.value.level2
-    if (filters.value.level3) args['信件三级分类'] = filters.value.level3
-    if (filters.value.status) args['信件状态'] = filters.value.status
-    if (filters.value.keyword) args['搜索关键字'] = filters.value.keyword
+    if (filters.value.level1) args.category_l1 = filters.value.level1
+    if (filters.value.level2) args.category_l2 = filters.value.level2
+    if (filters.value.level3) args.category_l3 = filters.value.level3
+    if (filters.value.status) args.status = filters.value.status
+    if (filters.value.keyword) args.keyword = filters.value.keyword
+    if (filters.value.letter_no) args.letter_no = filters.value.letter_no
+    if (filters.value.citizen_name) args.citizen_name = filters.value.citizen_name
+    if (filters.value.phone) args.phone = filters.value.phone
+    if (filters.value.id_card) args.id_card = filters.value.id_card
+    if (filters.value.start_time) args.start_time = filters.value.start_time
+    if (filters.value.end_time) args.end_time = filters.value.end_time
 
     const res = await getList(args)
     console.log('res', res)
@@ -310,6 +402,9 @@ const loadLetters = async () => {
     }
   } catch (err) {
     console.error('loadLetters error:', err)
+    // Ensure UI renders with empty list
+    letters.value = []
+    totalCount.value = 0
   }
   loading.value = false
 }
@@ -320,10 +415,35 @@ const loadCategories = async () => {
     const res = await getCategories()
     console.log('categories res', res)
     if (res.success) {
-      categoryData.value = res.data || {}
+      // Transform nested array to hierarchical object
+      const transformed = {}
+      const data = res.data || []
+      for (const level1 of data) {
+        const level1Name = level1.name
+        const level2Map = {}
+        for (const level2 of level1.children || []) {
+          const level2Name = level2.name
+          const level3Names = (level2.children || []).map(item => item.name)
+          level2Map[level2Name] = level3Names
+        }
+        transformed[level1Name] = level2Map
+      }
+      console.log('transformed categories', transformed)
+      categoryData.value = transformed
     }
   } catch (err) {
     console.error('loadCategories error:', err)
+    // Fallback data for UI rendering
+    categoryData.value = {
+      '投诉举报类': {
+        '接处警投诉': ['不出警、出警慢'],
+        '执法办案投诉': ['有案不立', '压案不查，久拖不决']
+      },
+      '意见建议类': {
+        '执法办案建议': ['案件办理效率', '公正文明执法']
+      }
+    }
+    console.log('Using fallback category data')
   }
 }
 

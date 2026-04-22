@@ -41,16 +41,23 @@ let authChecked = false
 let isAuthenticated = false
 
 router.beforeEach(async (to) => {
+  console.log('router.beforeEach', to.path, to.name, 'authChecked=', authChecked, 'isAuthenticated=', isAuthenticated)
   if (to.meta.requiresAuth === false) return true
-
   if (!authChecked) {
-    // 临时跳过检查，假设已登录
-    isAuthenticated = true
+    try {
+      console.log('Checking auth...')
+      const res = await checkAuth()
+      console.log('checkAuth result:', res)
+      isAuthenticated = res.success
+      console.log('isAuthenticated set to:', isAuthenticated)
+    } catch (err) {
+      console.error('checkAuth failed:', err)
+      isAuthenticated = false
+    }
     authChecked = true
   }
-
   if (!isAuthenticated) {
-    return { name: 'login' }
+    return '/login'
   }
   return true
 })

@@ -16,16 +16,16 @@ export const resetPassword = (args) =>
   http.post('/api/setting/', { order: 'reset_password', args })
 
 export const getOrgList = (args) =>
-  http.post('/api/setting/', { order: 'get_org_list', args })
+  http.post('/api/setting/', { order: 'get_units', args })
 
 export const createOrg = (args) =>
-  http.post('/api/setting/', { order: 'create_org', args })
+  http.post('/api/setting/', { order: 'create_unit', args })
 
 export const updateOrg = (args) =>
-  http.post('/api/setting/', { order: 'update_org', args })
+  http.post('/api/setting/', { order: 'update_unit', args })
 
 export const deleteOrg = (args) =>
-  http.post('/api/setting/', { order: 'delete_org', args })
+  http.post('/api/setting/', { order: 'delete_unit', args })
 
 export const getSpecialFocusList = () =>
   http.post('/api/setting/', { order: 'get_special_focus_list', args: {} })
@@ -56,3 +56,19 @@ export const changePassword = (args) =>
 
 export const getUserInfo = () =>
   http.post('/api/setting/', { order: 'get_user_info', args: {} })
+
+// Dispatch permissions
+export const getDispatchPermissions = () =>
+  http.post('/api/setting/', { order: 'get_dispatch_permissions', args: {} })
+
+export const createDispatchPermission = (args) =>
+  http.post('/api/setting/', { order: 'create_dispatch_permission', args })
+
+export const updateDispatchPermission = (args) =>
+  http.post('/api/setting/', { order: 'update_dispatch_permission', args })
+
+export const deleteDispatchPermission = (args) =>
+  http.post('/api/setting/', { order: 'delete_dispatch_permission', args })
+
+export const getDispatchUnits = () =>
+  http.post('/api/setting/', { order: 'get_dispatch_units', args: {} })

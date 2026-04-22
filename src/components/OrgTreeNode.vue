@@ -14,7 +14,7 @@
       ></i>
       <i v-else class="fas fa-circle text-xs text-gray-300 w-3"></i>
       <i class="fas fa-building text-gray-400 text-sm"></i>
-      <span class="text-sm">{{ node['一级'] || node['二级'] || node['三级'] || node.name }}</span>
+      <span class="text-sm">{{ node.level1 || node.level2 || node.level3 || node.name }}</span>
     </div>
     <div v-if="expanded && children.length">
       <OrgTreeNode
