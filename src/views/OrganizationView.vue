@@ -108,7 +108,7 @@
                   </button>
                 </td>
               </tr>
-              <tr v-if="filteredUnits.length === 0">
+              <tr v-if="orgs.length === 0">
                 <td colspan="4" class="text-center py-8 text-gray-400">暂无数据</td>
               </tr>
             </tbody>
@@ -119,12 +119,12 @@
         <div class="wp-panel-header compact border-t">
           <div class="flex items-center justify-between">
             <div class="text-sm text-gray-600">
-              共 {{ totalCount }} 条记录，第 {{ currentPage }} / {{ totalPages }} 页
+              共 {{ totalCount }} 条记录，显示第 {{ startItem }}-{{ endItem }} 条，第 {{ currentPage }} / {{ totalPages }} 页
             </div>
             <div class="flex items-center gap-4">
               <div class="flex items-center gap-2">
                 <span class="text-sm text-gray-600">每页显示</span>
-                <select v-model="pageSize" class="wp-select" style="width: 80px;" @change="handlePageSizeChange">
+                <select v-model.number="pageSize" class="wp-select" style="width: 80px;" @change="handlePageSizeChange">
                   <option value="10">10条</option>
                   <option value="20">20条</option>
                   <option value="50">50条</option>
@@ -314,7 +314,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { getOrgList, createOrg, updateOrg, deleteOrg, getDispatchPermissions, createDispatchPermission, updateDispatchPermission, deleteDispatchPermission, getDispatchUnits } from '@/api/setting'
 import InfoRow from '@/components/InfoRow.vue'
 import OrgTreeNode from '@/components/OrgTreeNode.vue'
@@ -349,38 +349,13 @@ const unitForm = ref({
 
 // Unit data from API
 const unitsLoading = ref(false)
-
-// Filtered units computed property — client-side filtering
-const filteredUnits = computed(() => {
-  let result = orgs.value
-
-  // Filter by search keyword (match any level)
-  const kw = searchKeyword.value.trim().toLowerCase()
-  if (kw) {
-    result = result.filter(u =>
-      (u.level1 && u.level1.toLowerCase().includes(kw)) ||
-      (u.level2 && u.level2.toLowerCase().includes(kw)) ||
-      (u.level3 && u.level3.toLowerCase().includes(kw))
-    )
-  }
-
-  // Filter by level1
-  if (filterLevel1.value) {
-    result = result.filter(u => u.level1 === filterLevel1.value)
-  }
-
-  // Filter by level2
-  if (filterLevel2.value) {
-    result = result.filter(u => u.level2 === filterLevel2.value)
-  }
-
-  return result
-})
+const totalCount = ref(0)
+const allUnits = ref([]) // All units for dropdown options
 
 // Dynamic level1 options from actual data
 const level1Options = computed(() => {
   const levels = new Set()
-  orgs.value.forEach(unit => {
+  allUnits.value.forEach(unit => {
     if (unit.level1 && unit.level1.trim()) {
       levels.add(unit.level1)
     }
@@ -390,7 +365,7 @@ const level1Options = computed(() => {
 
 // Dynamic level2 options — cascade based on selected level1
 const level2Options = computed(() => {
-  let pool = orgs.value
+  let pool = allUnits.value
   if (filterLevel1.value) {
     pool = pool.filter(u => u.level1 === filterLevel1.value)
   }
@@ -403,15 +378,21 @@ const level2Options = computed(() => {
   return Array.from(levels).sort()
 })
 
-// Total count based on filtered results
-const totalCount = computed(() => filteredUnits.value.length)
-
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
+
+// Current page item range
+const startItem = computed(() => {
+  if (totalCount.value === 0) return 0
+  return (currentPage.value - 1) * pageSize.value + 1
+})
+const endItem = computed(() => {
+  if (totalCount.value === 0) return 0
+  return Math.min(currentPage.value * pageSize.value, totalCount.value)
+})
+
 const paginatedUnits = computed(() => {
-  // Client-side pagination slice
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredUnits.value.slice(start, end)
+  // Backend already returns paginated data
+  return orgs.value
 })
 
 const pageNumbers = computed(() => {
@@ -563,6 +544,13 @@ const handlePageSizeChange = () => {
 
 // Dispatch permissions
 const activeTab = ref('units')
+
+// Watch activeTab changes to load data when switching tabs
+watch(activeTab, (newTab) => {
+  if (newTab === 'dispatch') {
+    loadDispatchPermissions()
+  }
+}, { immediate: true })
 const dispatchPermissions = ref([])
 const dispatchLoading = ref(false)
 const dispatchSubmitting = ref(false)
@@ -620,19 +608,34 @@ const loadOrgs = async () => {
   loading.value = true
   window.__debug_orgs_loaded = false
   try {
-    const res = await getOrgList({})
+    const params = {
+      page: currentPage.value,
+      page_size: pageSize.value,
+      search_keyword: searchKeyword.value.trim(),
+      filter_level1: filterLevel1.value,
+      filter_level2: filterLevel2.value
+    }
+    console.log('loadOrgs params:', params)
+    const res = await getOrgList(params)
     console.log('loadOrgs res:', res)
     if (res.success) {
-      // Backend now returns all units as a plain array
-      if (Array.isArray(res.data)) {
-        orgs.value = res.data
-      } else if (res.data?.list) {
+      // Backend returns paginated result with list and total
+      if (res.data?.list) {
         orgs.value = res.data.list
+        totalCount.value = res.data.total || 0
+      } else if (Array.isArray(res.data)) {
+        // Fallback for old API format
+        orgs.value = res.data
+        totalCount.value = res.data.length
       } else {
         orgs.value = []
+        totalCount.value = 0
       }
+    } else {
+      orgs.value = []
+      totalCount.value = 0
     }
-    console.log('orgs:', orgs.value, 'total:', orgs.value.length)
+    console.log('orgs:', orgs.value, 'total:', totalCount.value)
     window.__debug_orgs_loaded = true
     window.__debug_orgs_data = orgs.value
   } catch (e) {
@@ -642,9 +645,36 @@ const loadOrgs = async () => {
       { id: 1, level1: '市局', level2: '', level3: '', name: '市局', code: 'SJ', parent_id: null },
       { id: 2, level1: '分局', level2: '桃城分局', level3: '', name: '桃城分局', code: 'TCFJ', parent_id: 1 },
     ]
+    totalCount.value = 2
     console.log('Using mock data:', orgs.value)
   }
   loading.value = false
+}
+
+// Load all units for dropdown options (no pagination)
+const loadAllUnits = async () => {
+  try {
+    const params = {
+      page: 1,
+      page_size: 0, // 0 means get all units
+      search_keyword: '',
+      filter_level1: '',
+      filter_level2: ''
+    }
+    const res = await getOrgList(params)
+    if (res.success) {
+      if (res.data?.list) {
+        allUnits.value = res.data.list
+      } else if (Array.isArray(res.data)) {
+        allUnits.value = res.data
+      } else {
+        allUnits.value = []
+      }
+    }
+  } catch (e) {
+    console.error('loadAllUnits error:', e)
+    allUnits.value = []
+  }
 }
 
 // Dispatch permission methods
@@ -723,8 +753,11 @@ const handleDeleteDispatch = async (perm) => {
   } catch {}
 }
 
+
+
 onMounted(() => {
   console.log('OrganizationView mounted')
+  loadAllUnits()
   loadOrgs()
   if (activeTab.value === 'dispatch') {
     loadDispatchPermissions()

@@ -27,7 +27,8 @@
               <th style="width:60px">ID</th>
               <th style="width:180px">标签名称</th>
               <th>描述</th>
-              <th style="width:170px">创建时间</th>
+              <th style="width:100px">信件数量</th>
+              <th style="width:150px">创建时间</th>
               <th style="width:100px" class="text-center">操作</th>
             </tr>
           </thead>
@@ -40,9 +41,13 @@
               <td class="text-sm text-gray-600 max-w-0">
                 <span class="truncate block">{{ item['专项关注描述'] || item.description || '-' }}</span>
               </td>
+              <td class="text-center text-sm text-gray-700">-</td>
               <td class="text-xs text-gray-400 font-mono">{{ item.created_at ? formatTime(item.created_at) : '-' }}</td>
               <td class="text-center">
                 <div class="flex gap-1 justify-center">
+                  <button class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-100 text-blue-500" @click="viewLetters(item)" title="查看信件">
+                    <i class="fas fa-list text-xs"></i>
+                  </button>
                   <button class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-500" @click="openEditModal(item)" title="编辑">
                     <i class="fas fa-edit text-xs"></i>
                   </button>
@@ -115,14 +120,21 @@ const handleSave = async () => {
   submitting.value = true
   try {
     if (editingItem.value) {
-      await updateSpecialFocus({ id: editingItem.value.id, title: form.value.title, description: form.value.description })
+      await updateSpecialFocus({ id: editingItem.value.id, tag_name: form.value.title, description: form.value.description })
     } else {
-      await createSpecialFocus({ title: form.value.title, description: form.value.description })
+      await createSpecialFocus({ tag_name: form.value.title, description: form.value.description })
     }
     closeModal()
     load()
-  } catch {}
+  } catch (e) {
+    console.error('保存标签失败:', e)
+    alert('保存失败: ' + (e.message || '未知错误'))
+  }
   submitting.value = false
+}
+
+const viewLetters = (item) => {
+  alert(`查看标签 "${item['专项关注标题'] || item.tag_name || item.title}" 的信件列表（功能待实现）`)
 }
 
 const handleDelete = async (item) => {

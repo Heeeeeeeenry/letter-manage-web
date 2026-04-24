@@ -109,7 +109,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getAuditList, auditApprove, auditReject } from '@/api/letter'
+import { getAuditList, getDetail, auditApprove, auditReject } from '@/api/letter'
+import { normalizeFlowRecords } from '@/utils/flow'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const letters = ref({})
@@ -126,9 +127,19 @@ const formatTime = (t) => {
   return t.replace('T', ' ').substring(0, 16)
 }
 
-const selectLetter = (letter) => {
+const selectLetter = async (letter) => {
   selectedLetter.value = letter
   auditComment.value = ''
+  // Fetch flow records from detail API
+  try {
+    const res = await getDetail(letter['信件编号'])
+    const records = res?.data?.flow?.flow_records
+    if (Array.isArray(records) && records.length > 0) {
+      selectedLetter.value['流转记录'] = normalizeFlowRecords(records)
+    }
+  } catch (e) {
+    console.error('Failed to fetch flow records:', e)
+  }
 }
 
 const handleApprove = async () => {

@@ -104,6 +104,9 @@
               <button class="wp-btn wp-btn-danger text-xs py-1 px-2" @click="handleInvalid">
                 <i class="fas fa-ban"></i>标记无效
               </button>
+              <button class="wp-btn wp-btn-primary text-xs py-1 px-2" @click="handleBySelf">
+                <i class="fas fa-user-check"></i>由我处理
+              </button>
               <button class="wp-btn wp-btn-success text-xs py-1 px-2" @click="handleDispatch">
                 <i class="fas fa-paper-plane"></i>下发
               </button>
@@ -214,17 +217,55 @@
                   <i class="fas fa-building mr-1"></i>下发单位
                 </label>
                 <div class="flex gap-2">
-                  <select class="wp-select text-sm flex-1" v-model="form.unit">
-                    <option value="">请选择下发单位</option>
-                    <option v-for="unit in dispatchUnits" :key="unit.system_code || unit.id" :value="unit.fullName">
-                      {{ unit.fullName }}
-                    </option>
-                  </select>
+                  <div class="relative flex-1">
+                    <!-- 显示选中的单位 -->
+                    <div class="wp-input cursor-pointer flex items-center justify-between" @click="showUnitDropdown = !showUnitDropdown">
+                      <span class="truncate">{{ form.unit || '请选择下发单位' }}</span>
+                      <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" :class="{ 'rotate-180': showUnitDropdown }"></i>
+                    </div>
+                    
+                    <!-- 下拉面板 -->
+                    <div v-if="showUnitDropdown" class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-hidden flex flex-col">
+                      <!-- 搜索框 -->
+                      <div class="p-2 border-b border-gray-100">
+                        <div class="relative">
+                          <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                          <input 
+                            v-model="unitSearchKeyword" 
+                            class="wp-input pl-7 text-sm w-full" 
+                            placeholder="搜索单位..." 
+                            @click.stop
+                          />
+                        </div>
+                      </div>
+                      
+                      <!-- 单位列表 -->
+                      <div class="overflow-y-auto flex-1">
+                        <div v-if="filteredDispatchUnits.length === 0" class="text-center py-4 text-gray-400 text-sm">
+                          未找到匹配的单位
+                        </div>
+                        <div 
+                          v-else
+                          v-for="u in filteredDispatchUnits" 
+                          :key="u.system_code || u.id"
+                          class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0"
+                          :class="{ 'bg-blue-50 text-blue-600': form.unit === u.fullName }"
+                          @click="selectDispatchUnit(u)"
+                        >
+                          {{ u.fullName }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <button v-if="aiResult?.suggested_unit" class="text-xs text-purple-500 hover:text-purple-700"
                     @click="form.unit = matchUnitByName(aiResult.suggested_unit)" title="使用AI建议的单位">
                     <i class="fas fa-magic mr-1"></i>采纳
                   </button>
                 </div>
+                
+                <!-- 点击外部关闭下拉的透明层 -->
+                <div v-if="showUnitDropdown" class="fixed inset-0 z-40" @click="showUnitDropdown = false"></div>
               </div>
 
               <!-- Notes -->
@@ -338,7 +379,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch } from '@/api/letter'
+import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi } from '@/api/letter'
 import { getDispatchUnits } from '@/api/setting'
 import StatusBadge from '@/components/StatusBadge.vue'
 
@@ -364,6 +405,27 @@ const currentL3List = ref([])
 
 // Dispatch units
 const dispatchUnits = ref([])
+const unitSearchKeyword = ref('')
+const showUnitDropdown = ref(false)
+
+// 过滤后的下发单位列表（根据搜索关键词）
+const filteredDispatchUnits = computed(() => {
+  if (!unitSearchKeyword.value.trim()) {
+    return dispatchUnits.value
+  }
+  const keyword = unitSearchKeyword.value.toLowerCase().trim()
+  return dispatchUnits.value.filter(u => {
+    // 搜索 fullName 或各个层级
+    const fullName = (u.fullName || '').toLowerCase()
+    const level1 = (u.level1 || '').toLowerCase()
+    const level2 = (u.level2 || '').toLowerCase()
+    const level3 = (u.level3 || '').toLowerCase()
+    return fullName.includes(keyword) || 
+           level1.includes(keyword) || 
+           level2.includes(keyword) || 
+           level3.includes(keyword)
+  })
+})
 
 // Form data
 const form = ref({
@@ -373,12 +435,54 @@ const form = ref({
 })
 
 // Flow records
+// Normalize flow records from Chinese/English mixed field names to unified format
+const normalizeFlowRecord = (rec) => {
+  // Already in English new format
+  if (rec.action) {
+    return {
+      action: rec.action,
+      operator: rec.operator || rec.operator_name || '',
+      timestamp: rec.timestamp || rec.created_at || '',
+      from_unit: rec.from_unit || rec.source_unit || '',
+      to_unit: rec.to_unit || rec.target_unit || '',
+      remark: typeof rec.remark === 'object' ? JSON.stringify(rec.remark) : (rec.remark || ''),
+      operator_id: rec.operator_id || '',
+      from_status: rec.from_status || '',
+      to_status: rec.to_status || rec.status || '',
+    }
+  }
+  // Chinese old format
+  const actionMap = {
+    '生成': 'create',
+    '自行处理': 'handle_by_self',
+    '市局下发': 'dispatch',
+    '办案单位反馈': 'feedback',
+    '处理': 'process',
+    '退回': 'return',
+    '审核通过': 'audit_approve',
+    '审核驳回': 'audit_reject',
+    '标记无效': 'mark_invalid',
+  }
+  const remarkVal = rec['备注']
+  return {
+    action: actionMap[rec['操作类型']] || rec['操作类型'] || 'other',
+    operator: rec['操作人姓名'] || '',
+    timestamp: rec['操作时间'] || '',
+    from_unit: rec['操作前单位'] || '',
+    to_unit: rec['操作后单位'] || rec['目标单位'] || '',
+    remark: typeof remarkVal === 'object' ? JSON.stringify(remarkVal) : (remarkVal || ''),
+    operator_id: rec['操作人警号'] || '',
+    from_status: rec['操作前状态'] || '',
+    to_status: rec['操作后状态'] || '',
+  }
+}
+
 const flowRecords = computed(() => {
   const raw = selectedLetter.value?.['流转记录'] || selectedLetter.value?._raw?.flow_records || []
   if (typeof raw === 'string') {
-    try { return JSON.parse(raw) } catch { return [] }
+    try { return JSON.parse(raw).map(normalizeFlowRecord) } catch { return [] }
   }
-  return Array.isArray(raw) ? raw : []
+  return Array.isArray(raw) ? raw.map(normalizeFlowRecord) : []
 })
 
 // Sorted letters (newest first)
@@ -398,6 +502,8 @@ const getFlowActionLabel = (rec) => {
   const labels = {
     'create': '创建信件',
     'dispatch': '下发',
+    'handle_by_self': '自行处理',
+    'feedback': '办案单位反馈',
     'process': '处理',
     'return': '退回',
     'audit_approve': '审核通过',
@@ -405,6 +511,21 @@ const getFlowActionLabel = (rec) => {
     'mark_invalid': '标记无效',
   }
   return labels[rec.action] || rec.action || '操作'
+}
+
+const getFlowDotClass = (rec) => {
+  const dotMap = {
+    'create': 'bg-blue-500',
+    'dispatch': 'bg-orange-500',
+    'handle_by_self': 'bg-green-500',
+    'feedback': 'bg-purple-500',
+    'process': 'bg-teal-500',
+    'return': 'bg-red-500',
+    'audit_approve': 'bg-green-500',
+    'audit_reject': 'bg-red-500',
+    'mark_invalid': 'bg-gray-500',
+  }
+  return dotMap[rec.action] || 'bg-gray-400'
 }
 
 const sentimentBadge = (s) => {
@@ -467,6 +588,9 @@ const selectLetter = async (letter) => {
     unit: '',
     notes: '请接收单位认真处理用户诉求，及时回复。',
   }
+  // 重置单位搜索状态
+  unitSearchKeyword.value = ''
+  showUnitDropdown.value = false
   // Sync category cascade
   onCategoryL1Change()
   form.value.categoryL2 = letter['信件二级分类'] || ''
@@ -514,6 +638,13 @@ const matchUnitByName = (shortName) => {
   })
   if (last) return last.fullName
   return shortName
+}
+
+// 选择下发单位
+const selectDispatchUnit = (unit) => {
+  form.value.unit = unit.fullName
+  showUnitDropdown.value = false
+  unitSearchKeyword.value = '' // 清空搜索关键词
 }
 
 // Apply AI suggestions to form
@@ -584,6 +715,17 @@ const autoDispatchAll = async () => {
   await loadData()
   selectedLetter.value = null
   autoDispatchingAll.value = false
+}
+
+// Handle by self
+const handleBySelf = async () => {
+  if (!selectedLetter.value) return
+  if (!confirm('确认由您处理此信件？')) return
+  try {
+    await handleBySelfApi({ letter_no: selectedLetter.value['信件编号'] })
+    await loadData()
+    selectedLetter.value = null
+  } catch {}
 }
 
 // Mark invalid

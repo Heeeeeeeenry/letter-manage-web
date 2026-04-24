@@ -110,6 +110,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { getDetail } from '@/api/letter'
+import { normalizeFlowRecords } from '@/utils/flow'
 import StatusBadge from './StatusBadge.vue'
 import InfoRow from './InfoRow.vue'
 
@@ -196,25 +197,7 @@ const load = async () => {
         '信件三级分类': letter.category_l3 || '',
         '诉求内容': letter.content || '',
         '专项关注标签': letter.special_tags || [],
-        '流转记录': (flow.flow_records || []).map(record => {
-          // Process remark field: convert object to JSON string, keep string as is
-          let remark = record['备注'] || ''
-          if (remark && typeof remark === 'object') {
-            try {
-              remark = JSON.stringify(remark, null, 2)
-            } catch {}
-          }
-          
-          return {
-            '操作类型': record['操作类型'] || '',
-            '操作人': record['操作人姓名'] || record['操作人警号'] || '',
-            '操作时间': record['操作时间'] || '',
-            '操作单位': record['目标单位'] || record['操作后单位'] || record['操作前单位'] || '',
-            '备注': remark,
-            // Include all original fields for debugging
-            _raw: record
-          }
-        }),
+        '流转记录': normalizeFlowRecords(flow.flow_records),
         // Include raw data for debugging
         _rawLetter: letter,
         _rawFlow: flow

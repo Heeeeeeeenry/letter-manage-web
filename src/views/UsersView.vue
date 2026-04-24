@@ -38,7 +38,7 @@
             <tr v-for="user in users" :key="user.id || user['警号']">
               <td class="font-medium">{{ user['姓名'] || user.name }}</td>
               <td class="font-mono text-sm">{{ user['警号'] || user.police_number }}</td>
-              <td>{{ user['所属单位'] || user.org }}</td>
+              <td>{{ getUnitFullName(user['所属单位'] || user.org || user.unit_name) }}</td>
               <td>
                 <span class="wp-badge" :class="roleBadge(user['权限级别'] || user.role)">
                   {{ user['权限级别'] || user.role }}
@@ -88,19 +88,56 @@
           <div><label class="text-sm font-medium text-gray-700 mb-1 block">警号</label><input class="wp-input" v-model="form.policeNumber" placeholder="请输入警号" :readonly="!!editingUser" /></div>
           <div v-if="!editingUser"><label class="text-sm font-medium text-gray-700 mb-1 block">密码</label><input type="password" class="wp-input" v-model="form.password" placeholder="请输入初始密码" /></div>
           <div><label class="text-sm font-medium text-gray-700 mb-1 block">所属单位</label>
-            <select class="wp-select" v-model="form.org">
-              <option value="">请选择单位</option>
-              <option v-for="u in units" :key="u.system_code || u.id" :value="u.fullName">
-                {{ u.fullName }}
-              </option>
-            </select>
+            <div class="relative">
+              <!-- 显示选中的单位 -->
+              <div class="wp-input cursor-pointer flex items-center justify-between" @click="showUnitDropdown = !showUnitDropdown">
+                <span class="truncate">{{ form.org || '请选择单位' }}</span>
+                <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" :class="{ 'rotate-180': showUnitDropdown }"></i>
+              </div>
+              
+              <!-- 下拉面板 -->
+              <div v-if="showUnitDropdown" class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-hidden flex flex-col">
+                <!-- 搜索框 -->
+                <div class="p-2 border-b border-gray-100">
+                  <div class="relative">
+                    <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input 
+                      v-model="unitSearchKeyword" 
+                      class="wp-input pl-7 text-sm w-full" 
+                      placeholder="搜索单位..." 
+                      @click.stop
+                    />
+                  </div>
+                </div>
+                
+                <!-- 单位列表 -->
+                <div class="overflow-y-auto flex-1">
+                  <div v-if="filteredUnits.length === 0" class="text-center py-4 text-gray-400 text-sm">
+                    未找到匹配的单位
+                  </div>
+                  <div 
+                    v-else
+                    v-for="u in filteredUnits" 
+                    :key="u.system_code || u.id"
+                    class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0"
+                    :class="{ 'bg-blue-50 text-blue-600': form.org === u.fullName }"
+                    @click="selectUnit(u)"
+                  >
+                    {{ u.fullName }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 点击外部关闭下拉的透明层 -->
+            <div v-if="showUnitDropdown" class="fixed inset-0 z-40" @click="showUnitDropdown = false"></div>
           </div>
           <div>
             <label class="text-sm font-medium text-gray-700 mb-1 block">权限级别</label>
             <select class="wp-select" v-model="form.role">
               <option value="CITY">市级 (CITY)</option>
               <option value="DISTRICT">区级 (DISTRICT)</option>
-              <option value="UNIT">基层单位 (UNIT)</option>
+              <option value="OFFICER">基层单位 (OFFICER)</option>
             </select>
           </div>
         </div>
@@ -116,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { getUserList, createUser, updateUser, deleteUser, resetPassword, getOrgList } from '@/api/setting'
 
 const users = ref([])
@@ -130,8 +167,29 @@ const searchKeyword = ref('')
 const showModal = ref(false)
 const editingUser = ref(null)
 const units = ref([])
+const unitSearchKeyword = ref('')
+const showUnitDropdown = ref(false)
 
-const form = ref({ name: '', policeNumber: '', password: '', org: '', role: 'UNIT' })
+// 过滤后的单位列表（根据搜索关键词）
+const filteredUnits = computed(() => {
+  if (!unitSearchKeyword.value.trim()) {
+    return units.value
+  }
+  const keyword = unitSearchKeyword.value.toLowerCase().trim()
+  return units.value.filter(u => {
+    // 搜索 fullName 或各个层级
+    const fullName = (u.fullName || '').toLowerCase()
+    const level1 = (u.level1 || '').toLowerCase()
+    const level2 = (u.level2 || '').toLowerCase()
+    const level3 = (u.level3 || '').toLowerCase()
+    return fullName.includes(keyword) || 
+           level1.includes(keyword) || 
+           level2.includes(keyword) || 
+           level3.includes(keyword)
+  })
+})
+
+const form = ref({ name: '', policeNumber: '', password: '', org: '', role: 'OFFICER' })
 
 let debounceTimer = null
 
@@ -154,7 +212,7 @@ const goPage = (p) => {
 
 const loadUnits = async () => {
   try {
-    const res = await getOrgList()
+    const res = await getOrgList({ page_size: 10000 }) // 获取所有单位，使用大数避免分页
     if (res.success) {
       // 获取全部单位列表（无分页，用于下拉选择）
       const list = res.data?.list || res.data || []
@@ -162,8 +220,31 @@ const loadUnits = async () => {
         const parts = [u.level1, u.level2, u.level3].filter(Boolean)
         return { ...u, fullName: parts.join(' / ') }
       })
+    } else {
+      console.error('获取单位列表失败:', res.message)
     }
-  } catch {}
+  } catch (err) {
+    console.error('获取单位列表异常:', err)
+  }
+}
+
+// 选择单位
+const selectUnit = (unit) => {
+  form.value.org = unit.fullName
+  showUnitDropdown.value = false
+  unitSearchKeyword.value = '' // 清空搜索关键词
+}
+
+
+
+// 根据单位名获取完整层级路径
+const getUnitFullName = (unitName) => {
+  if (!unitName) return ''
+  // 在 units 列表中查找匹配的单位
+  const unit = units.value.find(u => 
+    u.level3 === unitName || u.level2 === unitName || u.level1 === unitName
+  )
+  return unit ? unit.fullName : unitName
 }
 
 const loadUsers = async () => {
@@ -181,7 +262,10 @@ const loadUsers = async () => {
 
 const openCreateModal = () => {
   editingUser.value = null
-  form.value = { name: '', policeNumber: '', password: '', org: '', role: 'UNIT' }
+  form.value = { name: '', policeNumber: '', password: '', org: '', role: 'OFFICER' }
+  // 重置单位搜索状态
+  unitSearchKeyword.value = ''
+  showUnitDropdown.value = false
   showModal.value = true
 }
 
@@ -196,19 +280,36 @@ const openEditModal = (user) => {
     )
     if (match) matchedFullName = match.fullName
   }
+  // 权限级别映射：中文转英文
+  let roleValue = user.role || 'OFFICER'
+  if (!roleValue || (roleValue !== 'CITY' && roleValue !== 'DISTRICT' && roleValue !== 'OFFICER')) {
+    // 可能是中文，尝试映射
+    const chineseRole = user['权限级别'] || ''
+    if (chineseRole === '市级') roleValue = 'CITY'
+    else if (chineseRole === '区级') roleValue = 'DISTRICT'
+    else if (chineseRole === '基层单位') roleValue = 'OFFICER'
+    else roleValue = 'OFFICER'
+  }
+  
   form.value = {
     name: user['姓名'] || user.name || '',
     policeNumber: user['警号'] || user.police_number || '',
     password: '',
     org: matchedFullName,
-    role: user.role || user['权限级别'] || 'UNIT',
+    role: roleValue,
   }
+  // 重置单位搜索状态
+  unitSearchKeyword.value = ''
+  showUnitDropdown.value = false
   showModal.value = true
 }
 
 const closeModal = () => {
   showModal.value = false
   editingUser.value = null
+  // 重置单位搜索状态
+  unitSearchKeyword.value = ''
+  showUnitDropdown.value = false
 }
 
 const handleSave = async () => {
@@ -217,7 +318,12 @@ const handleSave = async () => {
     // 从 fullName 中提取末级单位名（如 "北京市/海淀分局/中关村派出所" → "中关村派出所"）
     const parts = form.value.org.split(' / ')
     const unitName = parts[parts.length - 1]
-    const data = { name: form.value.name, police_number: form.value.policeNumber, unit_name: unitName, role: form.value.role }
+    const data = { 
+      name: form.value.name, 
+      police_number: form.value.policeNumber, 
+      unit_name: unitName, 
+      permission_level: form.value.role 
+    }
     if (editingUser.value) {
       await updateUser({ ...data, id: editingUser.value.id || editingUser.value['警号'] })
     } else {
@@ -246,5 +352,8 @@ const handleDelete = async (user) => {
   } catch {}
 }
 
-onMounted(() => { loadUsers(); loadUnits() })
+onMounted(async () => { 
+  await loadUnits()
+  loadUsers() 
+})
 </script>
