@@ -343,6 +343,36 @@
     </div>
   </div>
 
+  <!-- Return confirm modal -->
+  <div class="modal-overlay" :style="{ display: showReturnModal ? 'flex' : 'none' }" @click.self="showReturnModal = false">
+    <div class="modal-container remark-modal-container">
+      <div class="modal-header">
+        <h3 class="modal-title">
+          <i class="fas fa-undo text-orange-500"></i>
+          退回信件
+        </h3>
+        <button class="modal-close" @click="showReturnModal = false">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="text-sm text-gray-600 mb-3 bg-orange-50 border border-orange-200 rounded p-2">
+          <i class="fas fa-info-circle text-orange-500 mr-1"></i>
+          信件将退回到上一个处理节点（上一状态/单位），流转记录会保留，倒计时重新开始。
+        </div>
+        <label class="text-sm font-medium text-gray-700 block mb-1">退回原因</label>
+        <textarea class="form-textarea remark-textarea" v-model="returnRemark" placeholder="请输入退回原因..." rows="4"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" @click="showReturnModal = false">取消</button>
+        <button class="btn" style="background:#f59e0b;color:#fff" @click="confirmReturn">
+          <i class="fas fa-undo mr-1"></i>
+          确认退回
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Remark modal -->
   <div class="modal-overlay" id="remark-modal" :style="{ display: showRemarkModal ? 'flex' : 'none' }" @click.self="showRemarkModal = false">
     <div class="modal-container remark-modal-container">
@@ -462,25 +492,69 @@ const selectLetter = async (letter) => {
 }
 
 const startProcessingCountdown = () => {
-  // Find the "自行处理" (handle_by_self) time from flow records
+  // 优先使用后端返回的 deadline_at 字段（由 Dispatch 方法设置，退回时清除）
+  const deadlineAt = selectedLetter.value?._raw?.deadline_at
+  if (deadlineAt) {
+    const deadlineMs = new Date(deadlineAt).getTime()
+    if (isNaN(deadlineMs)) {
+      console.warn('无效的 deadline_at:', deadlineAt)
+    } else {
+      const remaining = deadlineMs - Date.now()
+      if (remaining <= 0) {
+        countdownTimerStr.value = '已超时'
+        processingExpired.value = true
+        return
+      }
+      processingStartTime.value = 'backend:' + deadlineAt
+      processingExpired.value = false
+      const updateFromDeadline = () => {
+        const remain = deadlineMs - Date.now()
+        if (remain <= 0) {
+          countdownTimerStr.value = '已超时'
+          processingExpired.value = true
+          if (processingTimer) {
+            clearInterval(processingTimer)
+            processingTimer = null
+          }
+          return
+        }
+        const minutes = Math.floor(remain / 60000)
+        const seconds = Math.floor((remain % 60000) / 1000)
+        countdownTimerStr.value = `${minutes}:${seconds.toString().padStart(2, '0')}`
+      }
+      updateFromDeadline()
+      if (processingTimer) clearInterval(processingTimer)
+      processingTimer = setInterval(updateFromDeadline, 1000)
+      return
+    }
+  }
+
+  // 后备方案：从流转记录中找最新一次 dispatch 操作时间作为计时起点
   const records = selectedLetter.value?.['流转记录'] || []
   let startTime = null
-  for (const rec of records) {
-    if (rec['操作类型'] === '自行处理') {
+  for (let i = records.length - 1; i >= 0; i--) {
+    const rec = records[i]
+    const opType = rec['操作类型'] || ''
+    if (opType === '下发' || opType === 'dispatch') {
       startTime = rec['操作时间']
       break
     }
   }
-  // Fallback: use the letter's updated_at or the most recent flow record time
+  if (!startTime) {
+    for (const rec of records) {
+      if (rec['操作类型'] === '自行处理') {
+        startTime = rec['操作时间']
+        break
+      }
+    }
+  }
   if (!startTime && selectedLetter.value?.['处理开始时间']) {
     startTime = selectedLetter.value['处理开始时间']
   }
-  // Fallback: parse from updated_at field (which matches 自行处理 time)
   if (!startTime && selectedLetter.value?.['更新时间']) {
     startTime = selectedLetter.value['更新时间']
   }
   
-  // If we found a start time from flow, calculate deadline = start + 30min
   if (startTime) {
     const deadlineMs = new Date(startTime).getTime() + 30 * 60 * 1000
     const remaining = deadlineMs - Date.now()
@@ -489,7 +563,6 @@ const startProcessingCountdown = () => {
       processingExpired.value = true
       return
     }
-    // Use a timer that references the fixed deadline
     processingStartTime.value = 'flow:' + startTime
     processingExpired.value = false
     const updateFromDeadline = () => {
@@ -513,7 +586,6 @@ const startProcessingCountdown = () => {
     return
   }
   
-  // No dispatch time found — fall back to fresh 30-min timer
   processingStartTime.value = Date.now()
   processingExpired.value = false
   updateCountdownDisplay()
@@ -606,11 +678,21 @@ const handleFileDrop = (e, type) => {
   if (type === 'recording') recordings.value = [...recordings.value, ...files]
 }
 
-const handleReturn = async () => {
+// 退回弹窗状态
+const showReturnModal = ref(false)
+const returnRemark = ref('')
+
+const handleReturn = () => {
   if (!selectedLetter.value) return
-  if (!confirm('确认退回此信件？')) return
+  returnRemark.value = ''
+  showReturnModal.value = true
+}
+
+const confirmReturn = async () => {
+  if (!selectedLetter.value) return
+  showReturnModal.value = false
   try {
-    await returnLetter({ letter_no: selectedLetter.value['信件编号'] })
+    await returnLetter({ letter_no: selectedLetter.value['信件编号'], remark: returnRemark.value })
     await loadData()
     selectedLetter.value = null
   } catch {}
