@@ -116,8 +116,10 @@
                   :key="tab.id"
                   class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                   :class="activeTab === tab.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'"
-                  @click="activeTab = tab.id"
-                >{{ tab.label }}</button>
+                  @click="switchTab(tab.id)"
+                >
+                  <i :class="tab.icon + ' mr-1.5'" class="w-4 text-center"></i>{{ tab.label }}
+                </button>
               </div>
               <!-- Processing countdown at bottom -->
               <div class="mt-auto pt-4 border-t border-gray-100">
@@ -126,162 +128,186 @@
               </div>
             </div>
 
-            <!-- Main content area -->
-            <div class="flex-1 p-4 overflow-y-auto">
-              <!-- 流转记录 Tab (匹配老平台时间线样式) -->
-              <div v-if="activeTab === 'flow'" class="flow-timeline" id="flow-records-container">
-                <div v-if="loadingFlow" class="placeholder-text">
-                  <i class="fas fa-spinner fa-spin"></i> 加载中...
-                </div>
-                <div v-else-if="!flowRecords.length" class="placeholder-text">
-                  <i class="fas fa-info-circle mr-1"></i>暂无流转记录
-                </div>
-                <div v-else>
-                  <div v-for="(rec, idx) in flowRecords" :key="idx" class="flow-item" :class="{ latest: idx === 0 }">
-                    <div class="flow-item-content">
-                      <div class="flow-item-header">
-                        <span class="flow-item-type">{{ rec['操作类型'] || '-' }}</span>
-                        <span class="flow-item-time">{{ formatTime(rec['操作时间']) }}</span>
-                      </div>
-                      <div class="flow-item-operator">
-                        操作人: {{ rec['操作人'] || rec['操作人姓名'] || '-' }} ({{ rec['操作人警号'] || '-' }})
-                      </div>
-                      <div class="flow-item-status" v-if="rec['操作前状态'] || rec['操作后状态']">
-                        <span class="status-before">{{ rec['操作前状态'] || '-' }}</span>
-                        <span class="status-arrow"><i class="fas fa-arrow-right"></i></span>
-                        <span class="status-after">{{ rec['操作后状态'] || '-' }}</span>
-                      </div>
-                      <div v-if="rec['目标单位']" class="flow-item-target">目标单位: {{ rec['目标单位'] }}</div>
-                      <div v-if="rec['备注']" class="flow-item-remark">
-                        <template v-if="typeof rec['备注'] === 'object'">
-                          <div v-for="(val, key) in rec['备注']" :key="key" class="flow-item-remark-item">
-                            <span class="remark-key">{{ key }}:</span> {{ Array.isArray(val) ? val.join(' / ') : val }}
-                          </div>
-                        </template>
-                        <div v-else class="flow-item-remark-item">{{ rec['备注'] }}</div>
+            <!-- Main content area - tab switching (matching old platform) -->
+            <div class="flex-1 workspace-main">
+              <!-- 流转记录 Tab -->
+              <div class="tab-content" :class="{ active: activeTab === 'flow' }">
+                <div class="tab-body">
+                  <div v-if="loadingFlow" class="placeholder-text">
+                    <i class="fas fa-spinner fa-spin"></i> 加载中...
+                  </div>
+                  <div v-else-if="!flowRecords.length" class="placeholder-text">
+                    <i class="fas fa-info-circle mr-1"></i>暂无流转记录
+                  </div>
+                  <div v-else class="flow-timeline">
+                    <div v-for="(rec, idx) in flowRecords" :key="idx" class="flow-item" :class="{ latest: idx === 0 }">
+                      <div class="flow-item-content">
+                        <div class="flow-item-header">
+                          <span class="flow-item-type">{{ rec['操作类型'] || '-' }}</span>
+                          <span class="flow-item-time">{{ formatTime(rec['操作时间']) }}</span>
+                        </div>
+                        <div class="flow-item-operator">
+                          操作人: {{ rec['操作人'] || rec['操作人姓名'] || '-' }} ({{ rec['操作人警号'] || '-' }})
+                        </div>
+                        <div class="flow-item-status" v-if="rec['操作前状态'] || rec['操作后状态']">
+                          <span class="status-before">{{ rec['操作前状态'] || '-' }}</span>
+                          <span class="status-arrow"><i class="fas fa-arrow-right"></i></span>
+                          <span class="status-after">{{ rec['操作后状态'] || '-' }}</span>
+                        </div>
+                        <div v-if="rec['目标单位']" class="flow-item-target">目标单位: {{ rec['目标单位'] }}</div>
+                        <div v-if="rec['备注']" class="flow-item-remark">
+                          <template v-if="typeof rec['备注'] === 'object'">
+                            <div v-for="(val, key) in rec['备注']" :key="key" class="flow-item-remark-item">
+                              <span class="remark-key">{{ key }}:</span> {{ Array.isArray(val) ? val.join(' / ') : val }}
+                            </div>
+                          </template>
+                          <div v-else class="flow-item-remark-item">{{ rec['备注'] }}</div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- 历史来信 Tab (匹配老平台可展开列表样式) -->
-              <div v-if="activeTab === 'history'" class="history-letters-list" id="history-letters-container">
-                <div v-if="loadingHistory" class="placeholder-text">
-                  <i class="fas fa-spinner fa-spin"></i> 加载中...
-                </div>
-                <div v-else-if="!historyLetters.length" class="placeholder-text">
-                  <i class="fas fa-info-circle mr-1"></i>该群众暂无历史来信
-                </div>
-                <div v-else>
-                  <div v-for="(letter, idx) in historyLetters" :key="idx" class="history-letter-item" :data-letter-number="letter['信件编号']">
-                    <div class="history-letter-header">
-                      <span class="history-letter-number">{{ letter['信件编号'] || '-' }}</span>
-                      <span class="history-letter-time">{{ formatTime(letter['来信时间']) }}</span>
+              <!-- 历史来信 Tab -->
+              <div class="tab-content" :class="{ active: activeTab === 'history' }">
+                <div class="tab-body">
+                  <div v-if="loadingHistory" class="placeholder-text">
+                    <i class="fas fa-spinner fa-spin"></i> 加载中...
+                  </div>
+                  <div v-else-if="!historyLetters.length" class="placeholder-text">
+                    <i class="fas fa-info-circle mr-1"></i>该群众暂无历史来信
+                  </div>
+                  <div v-else class="history-letters-list">
+                    <div v-for="(letter, idx) in historyLetters" :key="idx" class="history-letter-item" :data-letter-number="letter['信件编号']" @click="scrollToHistoryLetter($event)">
+                      <div class="history-letter-header">
+                        <span class="history-letter-number">{{ letter['信件编号'] || '-' }}</span>
+                        <span class="history-letter-time">{{ formatTime(letter['来信时间']) }}</span>
+                      </div>
+                      <span class="history-letter-status">{{ letter['当前信件状态'] || letter['信件状态'] || '-' }}</span>
+                      <div class="history-letter-category">{{ [letter['信件一级分类'],letter['信件二级分类'],letter['信件三级分类']].filter(Boolean).join(' / ') || '-' }}</div>
+                      <div class="history-letter-content">{{ letter['诉求内容'] || '' }}</div>
                     </div>
-                    <span class="history-letter-status">{{ letter['当前信件状态'] || letter['信件状态'] || '-' }}</span>
-                    <div class="history-letter-category">{{ [letter['信件一级分类'],letter['信件二级分类'],letter['信件三级分类']].filter(Boolean).join(' / ') || '-' }}</div>
-                    <div class="history-letter-content">{{ letter['诉求内容'] || '' }}</div>
                   </div>
                 </div>
               </div>
 
-              <!-- 信件处理 Tab (匹配老平台两步流程区段) -->
-              <div v-if="activeTab === 'handle'" class="handle-content">
-                <!-- 处理建议区段 (联系群众) -->
-                <div class="content-section section-letter">
-                  <div class="section-title">
-                    <i class="fas fa-phone-alt"></i> 联系群众
-                  </div>
-                  <div class="section-content">
-                    <!-- 群众联系方式 -->
-                    <div class="contact-info">
-                      <div class="contact-item">
-                        <span class="contact-label">姓名：</span>
-                        <span class="contact-value">{{ selectedLetter['群众姓名'] || '-' }}</span>
-                      </div>
-                      <div class="contact-item">
-                        <span class="contact-label">手机号：</span>
-                        <span class="contact-value">{{ selectedLetter['手机号'] || '-' }}</span>
-                      </div>
-                      <div v-if="selectedLetter['身份证号']" class="contact-item">
-                        <span class="contact-label">身份证号：</span>
-                        <span class="contact-value">{{ selectedLetter['身份证号'] }}</span>
-                      </div>
+              <!-- 信件处理 Tab -->
+              <div class="tab-content" :class="{ active: activeTab === 'handle' }">
+                <div class="tab-body">
+                  <!-- 步骤标题 + 指示器 -->
+                  <div class="handle-step-tab-header" style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #e5e7eb;">
+                    <i class="fas fa-edit" style="color:#3b82f6;font-size:14px;"></i>
+                    <span style="font-size:14px;font-weight:600;color:#374151;margin-right:auto;">信件处理</span>
+                    <div class="handle-step-indicator" :class="{ active: handleStep === 1 }" @click.stop="handleStep = 1">
+                      <div class="handle-step-number">1</div>
+                      <span class="handle-step-title">联系群众</span>
                     </div>
-                    <!-- 上传通话录音 -->
-                    <div class="upload-area">
-                      <div class="upload-label">上传通话录音</div>
-                      <div
-                        class="wp-upload-zone"
-                        @dragover.prevent
-                        @drop.prevent="handleFileDrop($event, 'recording')"
-                        @click="$refs.recordingInput.click()"
-                      >
-                        <i class="fas fa-microphone text-2xl mb-2 block"></i>
-                        <div class="text-sm">点击或拖拽上传通话录音</div>
-                        <div class="text-xs text-gray-400 mt-1">支持 .mp3 .wav .m4a 格式，最多10个文件</div>
-                        <input ref="recordingInput" type="file" accept=".mp3,.wav,.m4a" class="hidden" multiple @change="handleFileSelect($event, 'recording')" />
-                      </div>
-                      <div v-if="recordings.length" class="mt-2">
-                        <div class="file-list">
-                          <div v-for="(f, i) in recordings" :key="i" class="file-item">
-                            <i class="fas fa-file-audio text-blue-400"></i>
-                            <span class="file-name">{{ f.name }}</span>
-                            <span class="file-size">{{ formatFileSize(f.size) }}</span>
-                            <button class="file-remove" @click="recordings.splice(i,1)" title="移除"><i class="fas fa-times"></i></button>
+                    <div class="handle-step-line"></div>
+                    <div class="handle-step-indicator" :class="{ active: handleStep === 2 }" @click.stop="handleStep = 2">
+                      <div class="handle-step-number">2</div>
+                      <span class="handle-step-title">诉求处理</span>
+                    </div>
+                  </div>
+                  <!-- 步骤内容: 使用v-show切换 -->
+                  <div class="handle-steps-container">
+                    <!-- 步骤1: 联系群众 -->
+                    <div v-show="handleStep === 1" class="handle-step-panel">
+                      <div class="handle-panel-content">
+                        <div class="content-section section-letter">
+                          <div class="section-title"><i class="fas fa-phone-alt"></i> 联系群众</div>
+                          <div class="section-content">
+                            <div class="contact-info">
+                              <div class="contact-item">
+                                <span class="contact-label">姓名：</span>
+                                <span class="contact-value">{{ selectedLetter['群众姓名'] || '-' }}</span>
+                              </div>
+                              <div class="contact-item">
+                                <span class="contact-label">手机号：</span>
+                                <span class="contact-value">{{ selectedLetter['手机号'] || '-' }}</span>
+                              </div>
+                              <div v-if="selectedLetter['身份证号']" class="contact-item">
+                                <span class="contact-label">身份证号：</span>
+                                <span class="contact-value">{{ selectedLetter['身份证号'] }}</span>
+                              </div>
+                            </div>
+                            <div class="upload-area mt-3">
+                              <div class="upload-label">上传通话录音</div>
+                              <div class="wp-upload-zone" @dragover.prevent @drop.prevent="handleFileDrop($event, 'recording')" @click="$refs.recordingInput.click()">
+                                <i class="fas fa-microphone text-2xl mb-2 block"></i>
+                                <div class="text-sm">点击或拖拽上传通话录音</div>
+                                <div class="text-xs text-gray-400 mt-1">支持 .mp3 .wav .m4a 格式，最多10个文件</div>
+                                <input ref="recordingInput" type="file" accept=".mp3,.wav,.m4a" class="hidden" multiple @change="handleFileSelect($event, 'recording')" />
+                              </div>
+                              <div v-if="recordings.length" class="mt-2">
+                                <div class="file-list">
+                                  <div v-for="(f, i) in recordings" :key="i" class="file-item">
+                                    <i class="fas fa-file-audio text-blue-400"></i>
+                                    <span class="file-name">{{ f.name }}</span>
+                                    <span class="file-size">{{ formatFileSize(f.size) }}</span>
+                                    <button class="file-remove" @click="recordings.splice(i,1)" title="移除"><i class="fas fa-times"></i></button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="feedback-area">
+                              <div class="section-title"><i class="fas fa-comment-dots"></i> 联系情况反馈</div>
+                              <textarea class="wp-input text-sm resize-none" rows="5" v-model="contactFeedback" placeholder="请填写联系群众的情况反馈..."></textarea>
+                            </div>
+                            <div class="step-actions" style="text-align:right">
+                              <button class="wp-btn wp-btn-primary" @click="handleStep = 2" :disabled="!contactFeedback.trim()">
+                                <span>下一步：诉求处理</span>
+                                <i class="fas fa-arrow-right"></i>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <!-- 处理步骤指示器 -->
-                    <div class="handle-steps">
-                      <div class="steps-indicator">
-                        <div class="step-item active">
-                          <div class="step-circle"><i class="fas fa-phone-alt"></i></div>
-                          <span class="step-label">联系群众</span>
+                    <!-- 步骤2: 诉求处理 -->
+                    <div v-show="handleStep === 2" class="handle-step-panel">
+                      <div class="handle-panel-content">
+                        <div class="content-section section-letter">
+                          <div class="section-title"><i class="fas fa-lightbulb"></i> AI 处理建议</div>
+                          <div class="section-content">
+                            <div v-if="processingSuggestion" class="suggestion-text">{{ processingSuggestion }}</div>
+                            <div v-else class="suggestion-empty" @click="getAISuggestion">
+                              <i class="fas fa-robot"></i>
+                              <span>点击获取AI处理建议</span>
+                            </div>
+                          </div>
                         </div>
-                        <div class="step-arrow"><i class="fas fa-chevron-right"></i></div>
-                        <div class="step-item">
-                          <div class="step-circle"><i class="fas fa-check"></i></div>
-                          <span class="step-label">处理完成</span>
+                        <div class="content-section section-flow mt-3">
+                          <div class="section-title"><i class="fas fa-pen"></i> 处理结果</div>
+                          <div class="section-content">
+                            <div class="countdown-banner" :class="processingExpired ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-blue-50'">
+                              <div class="flex items-center gap-2">
+                                <i class="fas fa-hourglass-half" :class="processingExpired ? 'text-red-500' : 'text-blue-500'"></i>
+                                <span class="text-sm font-medium" :class="processingExpired ? 'text-red-600' : 'text-blue-600'">处理倒计时</span>
+                                <span class="ml-auto text-sm font-bold" :class="processingExpired ? 'text-red-600' : 'text-blue-600'">{{ countdownTimerStr || '-' }}</span>
+                              </div>
+                              <div class="text-xs text-gray-600 mt-1">
+                                <span v-if="processingExpired" class="font-medium">处理已超时，请尽快完成处理！</span>
+                                <span v-else>请在30分钟内完成群众联系和处理反馈</span>
+                              </div>
+                            </div>
+                            <textarea class="wp-input text-sm resize-none" rows="5" v-model="handleResult" placeholder="请填写信件处理结果..." maxlength="1000"></textarea>
+                            <div class="flex items-center justify-end mt-1">
+                              <span class="text-xs text-gray-500">{{ handleResult.length }}/1000 字符</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div class="step-actions flex justify-between mt-3">
+                          <button class="wp-btn wp-btn-secondary" @click="handleStep = 1">
+                            <i class="fas fa-arrow-left"></i>
+                            <span>上一步：联系群众</span>
+                          </button>
+                          <button class="wp-btn wp-btn-success" @click="handleSubmit">
+                            <span>提交</span>
+                            <i class="fas fa-check"></i>
+                          </button>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 处理操作区段 -->
-                <div class="content-section section-flow">
-                  <div class="section-title">
-                    <i class="fas fa-tasks"></i> 处理操作
-                  </div>
-                  <div class="section-content">
-                    <!-- 处理倒计时 -->
-                    <div class="countdown-banner" :class="processingExpired ? 'border-red-300 bg-red-50' : 'border-blue-200 bg-blue-50'">
-                      <div class="flex items-center gap-2">
-                        <i class="fas fa-hourglass-half" :class="processingExpired ? 'text-red-500' : 'text-blue-500'"></i>
-                        <span class="text-sm font-medium" :class="processingExpired ? 'text-red-600' : 'text-blue-600'">处理倒计时</span>
-                        <span class="ml-auto text-sm font-bold" :class="processingExpired ? 'text-red-600' : 'text-blue-600'">{{ countdownTimerStr || '-' }}</span>
-                      </div>
-                      <div class="text-xs text-gray-600 mt-1">
-                        <span v-if="processingExpired" class="font-medium">处理已超时，请尽快完成处理！</span>
-                        <span v-else>请在30分钟内完成群众联系和处理反馈</span>
-                      </div>
-                    </div>
-                    <!-- 处理反馈 -->
-                    <div class="feedback-area">
-                      <div class="flex items-center justify-between mb-2">
-                        <label class="text-sm font-medium text-gray-700">处理反馈</label>
-                        <span class="text-xs text-gray-500">{{ remark.length }}/1000 字符</span>
-                      </div>
-                      <textarea
-                        class="wp-input text-sm resize-none"
-                        rows="5"
-                        v-model="remark"
-                        placeholder="请输入处理反馈内容，包括：&#10;1. 与群众沟通情况&#10;2. 问题处理进展&#10;3. 解决方案或建议&#10;4. 其他需要说明的事项"
-                        maxlength="1000"
-                      ></textarea>
                     </div>
                   </div>
                 </div>
@@ -419,6 +445,12 @@ const loadingFlow = ref(false)
 const loadingHistory = ref(false)
 const historyLetters = ref([])
 
+// Handle steps state (1-联系群众, 2-诉求处理)
+const handleStep = ref(1)
+const contactFeedback = ref('')
+const handleResult = ref('')
+const processingSuggestion = ref('')
+
 // Bottom action bar state
 const selectedCategory = ref('')
 const categoryDropdownOpen = ref(false)
@@ -448,9 +480,9 @@ const aiResult = ref(null)
 let pollTimer = null
 
 const tabs = [
-  { id: 'flow', label: '流转记录' },
-  { id: 'history', label: '历史来信' },
-  { id: 'handle', label: '信件处理' },
+  { id: 'flow', label: '流转记录', icon: 'fas fa-exchange-alt' },
+  { id: 'history', label: '历史来信', icon: 'fas fa-history' },
+  { id: 'handle', label: '信件处理', icon: 'fas fa-edit' },
 ]
 
 const flowRecords = computed(() => selectedLetter.value?.['流转记录'] || [])
@@ -478,11 +510,15 @@ const urgencyBadgeClass = (u) => {
 
 const selectLetter = async (letter) => {
   selectedLetter.value = letter
-  remark.value = ''
+  handleStep.value = 1
+  contactFeedback.value = ''
+  handleResult.value = ''
+  processingSuggestion.value = ''
   recordings.value = []
+
   activeTab.value = 'flow'
-  // Reset tab-related state
   historyLetters.value = []
+
   // Fetch detail for flow records
   await loadFlowRecords(letter['信件编号'])
   // Fetch history letters
@@ -700,8 +736,8 @@ const confirmReturn = async () => {
 
 const handleSubmit = async () => {
   if (!selectedLetter.value) return
-  if (!remark.value.trim()) {
-    alert('请填写处理反馈内容')
+  if (!handleResult.value.trim()) {
+    alert('请填写处理结果')
     return
   }
   submitting.value = true
@@ -719,11 +755,13 @@ const handleSubmit = async () => {
     }
     await submitProcessing({
       letter_no: selectedLetter.value['信件编号'],
-      remark: remark.value,
+      remark: handleResult.value,
     })
     await loadData()
     selectedLetter.value = null
-    remark.value = ''
+    handleStep.value = 1
+    contactFeedback.value = ''
+    handleResult.value = ''
     recordings.value = []
   } catch {}
   submitting.value = false
@@ -750,6 +788,21 @@ const handleInvalid = async () => {
     await loadData()
     selectedLetter.value = null
   } catch {}
+}
+
+const getAISuggestion = async () => {
+  if (!selectedLetter.value || !selectedLetter.value['诉求内容']) {
+    processingSuggestion.value = '暂无诉求内容可供分析'
+    return
+  }
+  try {
+    const res = await analyzeLetter({ letter_no: selectedLetter.value['信件编号'] })
+    processingSuggestion.value = res.success
+      ? (res.data?.suggestion || res.data?.analysis || '分析完成，请查看')
+      : 'AI分析暂不可用'
+  } catch {
+    processingSuggestion.value = 'AI分析暂不可用'
+  }
 }
 
 // Bottom action bar methods
@@ -838,18 +891,27 @@ if (typeof document !== 'undefined') {
   })
 }
 
-// Auto-load data when switching tabs
-watch(activeTab, async (newTab) => {
-  if (!selectedLetter.value) return
-  if (newTab === 'flow') {
-    await loadFlowRecords(selectedLetter.value['信件编号'])
-  } else if (newTab === 'history') {
-    const idCard = selectedLetter.value['手机号'] || selectedLetter.value['身份证号']
-    if (!historyLetters.value.length && idCard) {
-      await loadHistoryLetters(idCard)
-    }
-  }
-})
+// ──── Tab switching (matching old platform) ────
+// 点击左侧标签 → 切换中间内容区，对标老系统 sidebar-item 点击事件
+const switchTab = (tabId) => {
+  activeTab.value = tabId
+}
+
+// 点击历史来信条目 → 滚动到该条目的位置（在当前 tab-body 内部滚动）
+const scrollToHistoryLetter = (e) => {
+  const el = e.currentTarget
+  if (!el) return
+  // 找到最近的 .tab-body（overflow-y:auto 的滚动容器）
+  const container = el.closest('.tab-body')
+  if (!container) return
+  // 选中高亮：先移除所有历史来信的高亮，再给当前点击的添加高亮
+  document.querySelectorAll('.history-letter-item').forEach(item => item.classList.remove('history-letter-selected'))
+  el.classList.add('history-letter-selected')
+  container.scrollTo({
+    top: el.offsetTop - container.offsetTop - 12,
+    behavior: 'smooth'
+  })
+}
 
 const loadData = async () => {
   loadingList.value = true
@@ -903,3 +965,161 @@ onUnmounted(() => {
   if (processingTimer) clearInterval(processingTimer)
 })
 </script>
+
+<style scoped>
+/* 标签页内容切换 (对标老系统 workspace-main / .tab-content / .tab-body) */
+.workspace-main {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tab-content {
+  flex: 1;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tab-content.active {
+  display: flex;
+}
+.tab-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* 信件处理步骤指示器（老系统风格） */
+.handle-steps-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.handle-step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+.handle-step-number {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: #e5e7eb;
+  color: #6b7280;
+  transition: all 0.3s ease;
+}
+.handle-step-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: all 0.3s ease;
+}
+.handle-step-line {
+  width: 30px;
+  height: 2px;
+  background: #e5e7eb;
+  margin: 0 4px;
+  transition: all 0.3s ease;
+}
+.handle-step-indicator.active .handle-step-number {
+  background: #3b82f6;
+  color: #ffffff;
+}
+.handle-step-indicator.active .handle-step-title {
+  color: #3b82f6;
+  font-weight: 600;
+}
+.handle-steps-container {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.handle-step-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid rgba(229, 231, 235, 0.6);
+  border-radius: 8px;
+}
+.handle-panel-content {
+  padding: 16px;
+  overflow: auto;
+}
+.suggestion-text {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  color: #1e40af;
+  line-height: 1.6;
+}
+.suggestion-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+.suggestion-empty:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #3b82f6;
+}
+.step-actions {
+  margin-top: 16px;
+}
+.step-actions .wp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.step-actions .wp-btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+.step-actions .wp-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.step-actions .wp-btn-primary:hover:not(:disabled) {
+  background: #2563eb;
+}
+.step-actions .wp-btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+.step-actions .wp-btn-secondary:hover {
+  background: #e5e7eb;
+}
+.step-actions .wp-btn-success {
+  background: #10b981;
+  color: white;
+}
+.step-actions .wp-btn-success:hover {
+  background: #059669;
+}
+</style>

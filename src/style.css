@@ -1428,12 +1428,18 @@ html, body, #app {
   padding: 14px 16px;
   margin-bottom: 10px;
   transition: all 0.2s;
-  cursor: default;
+  cursor: pointer;
 }
 
 .history-letter-item:hover {
   border-color: #e5e7eb;
   box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.history-letter-item.history-letter-selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
 }
 
 .history-letter-header {
