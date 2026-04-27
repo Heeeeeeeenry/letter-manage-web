@@ -16,7 +16,7 @@
 
     <div class="flex gap-4 flex-1 overflow-hidden">
       <!-- Left list -->
-      <div class="wp-panel flex flex-col" style="width:300px;flex-shrink:0" id="letter-list-panel">
+      <div class="wp-panel flex flex-col" style="width:250px;flex-shrink:0" id="letter-list-panel">
         <div class="wp-panel-header compact">
           <span class="text-sm font-semibold">待处理信件</span>
           <button class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="loadData">
@@ -327,7 +327,7 @@
           <!-- Bottom action bar (matching old platform) -->
           <div class="detail-bottom">
             <div class="bottom-row controls-row">
-              <!-- Category dropdown (searchable) -->
+              <!-- Category dropdown (searchable) - left side -->
               <div class="searchable-select" :class="{ active: categoryDropdownOpen }" id="category-select-container">
                 <div class="select-input-wrapper" @click="toggleCategoryDropdown">
                   <input type="text" class="select-input" id="category-select-input"
@@ -352,25 +352,28 @@
                 </div>
               </div>
 
-              <!-- Remark button -->
-              <button class="remark-btn" id="btn-remark" @click="showRemarkModal = true" title="添加备注">
-                <i class="fas fa-comment-alt"></i>
-                <span>备注</span>
-              </button>
+              <!-- Action buttons - right side -->
+              <div class="action-buttons-right">
+                <!-- Remark button -->
+                <button class="remark-btn" id="btn-remark" @click="showRemarkModal = true" title="添加备注">
+                  <i class="fas fa-comment-alt"></i>
+                  <span>备注</span>
+                </button>
 
-              <!-- Action buttons -->
-              <button class="action-btn return" id="btn-return" @click="handleReturn" title="退回信件">
-                <i class="fas fa-undo"></i>
-                <span>退回</span>
-              </button>
-              <button class="action-btn invalid" id="btn-invalid" @click="handleInvalid" title="标记为不属实">
-                <i class="fas fa-times-circle"></i>
-                <span>不属实</span>
-              </button>
-              <button class="action-btn submit" id="btn-submit" @click="handleSubmitFromBar" title="提交处理">
-                <i class="fas fa-check-circle"></i>
-                <span>提交</span>
-              </button>
+                <!-- Action buttons -->
+                <button class="action-btn return" id="btn-return" @click="handleReturn" title="退回信件">
+                  <i class="fas fa-undo"></i>
+                  <span>退回</span>
+                </button>
+                <button class="action-btn invalid" id="btn-invalid" @click="handleInvalid" title="标记为不属实">
+                  <i class="fas fa-times-circle"></i>
+                  <span>不属实</span>
+                </button>
+                <button class="action-btn submit" id="btn-submit" @click="handleSubmitFromBar" title="提交处理">
+                  <i class="fas fa-check-circle"></i>
+                  <span>提交</span>
+                </button>
+              </div>
             </div>
           </div>
         </template>
@@ -532,6 +535,13 @@ const selectLetter = async (letter) => {
 
   activeTab.value = 'flow'
   historyLetters.value = []
+
+  // Auto-select category from letter details
+  if (letter['信件一级分类'] || letter['信件二级分类'] || letter['信件三级分类']) {
+    selectedCategory.value = [letter['信件一级分类'], letter['信件二级分类'], letter['信件三级分类']].filter(Boolean).join(' / ')
+  } else {
+    selectedCategory.value = ''
+  }
 
   // Fetch detail for flow records
   await loadFlowRecords(letter['信件编号'])
@@ -1056,6 +1066,26 @@ onUnmounted(() => {
 }
 .tab-body {
   padding: 0;
+}
+
+/* Bottom action bar layout */
+.detail-bottom {
+  flex-shrink: 0;
+  border-top: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+.bottom-row.controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  gap: 12px;
+}
+.action-buttons-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 /* 信件处理步骤指示器（老系统风格） */
