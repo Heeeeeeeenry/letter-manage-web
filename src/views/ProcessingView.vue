@@ -771,7 +771,7 @@ const handleSubmit = async () => {
       const formData = new FormData()
       formData.append('letter_no', selectedLetter.value['信件编号'])
       recordings.value.forEach(f => formData.append('files', f))
-      await fetch('http://localhost:18081/api/letter/upload/', {
+      await fetch('/api/letter/', {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -781,8 +781,14 @@ const handleSubmit = async () => {
       letter_no: selectedLetter.value['信件编号'],
       remark: handleResult.value,
     })
-    await loadData()
+    // 重新加载信件列表和流转记录
+    const prevLetterNo = selectedLetter.value['信件编号']
     selectedLetter.value = null
+    await loadData()
+    // 选中刚才处理的信件，刷新流转记录显示
+    if (prevLetterNo && letters.value[prevLetterNo]) {
+      await selectLetter(letters.value[prevLetterNo])
+    }
     handleStep.value = 1
     contactFeedback.value = ''
     handleResult.value = ''

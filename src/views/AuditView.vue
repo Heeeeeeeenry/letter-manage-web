@@ -95,7 +95,9 @@
                       <span class="font-medium">{{ rec['操作类型'] }}</span>
                       <span class="text-xs text-gray-400">{{ formatTime(rec['操作时间']) }}</span>
                     </div>
-                    <div v-if="rec['备注']" class="text-xs text-gray-500 mt-1">{{ rec['备注'] }}</div>
+                    <div v-if="rec['操作人']" class="text-xs text-gray-500">操作人：{{ rec['操作人'] }}</div>
+                    <div v-if="rec['操作单位']" class="text-xs text-gray-500 mt-0.5">操作单位：{{ rec['操作单位'] }}</div>
+                    <div v-if="rec['备注']" class="text-xs text-gray-400 mt-1 bg-white rounded-lg p-2">{{ rec['备注'] }}</div>
                   </div>
                 </div>
               </div>

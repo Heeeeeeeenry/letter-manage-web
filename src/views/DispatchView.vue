@@ -183,6 +183,24 @@
                     <div class="dispatch-ai-message-content p-2 rounded-lg text-sm max-w-[85%]"
                       :class="msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'">
                       <div class="dispatch-ai-message-text whitespace-pre-wrap">{{ msg.content }}</div>
+                      <!-- AI回复的采纳按钮 -->
+                      <div v-if="msg.role === 'assistant' && idx === aiChatMessages.length - 1 && Object.keys(aiCommandFields).length > 0" class="ai-action-buttons mt-2 flex flex-wrap gap-1.5">
+                        <button v-if="aiCommandFields.category" class="ai-btn-accept text-xs" @click="acceptField('category')">
+                          <i class="fas fa-check-circle mr-0.5"></i>采纳分类
+                        </button>
+                        <button v-if="aiCommandFields.unit" class="ai-btn-accept text-xs" @click="acceptField('unit')">
+                          <i class="fas fa-check-circle mr-0.5"></i>采纳单位
+                        </button>
+                        <button v-if="aiCommandFields.notes" class="ai-btn-accept text-xs" @click="acceptField('notes')">
+                          <i class="fas fa-check-circle mr-0.5"></i>采纳备注
+                        </button>
+                        <button v-if="aiCommandFields.focus" class="ai-btn-accept text-xs" @click="acceptField('focus')">
+                          <i class="fas fa-check-circle mr-0.5"></i>采纳专项关注
+                        </button>
+                        <button class="ai-btn-fill-all text-xs" @click="acceptField('all')">
+                          <i class="fas fa-rocket mr-0.5"></i>一键填充
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </template>
@@ -442,6 +460,9 @@ let chatAbortController = null
 
 // Dispatch prompt (loaded from old project)
 const dispatchPrompt = ref('')
+
+// AI 回复中解析出的命令字段，用于显示采纳按钮
+const aiCommandFields = ref({})
 
 // Ref for scrollable detail content area
 const detailScrollRef = ref(null)
@@ -906,8 +927,14 @@ const confirmDispatch = async () => {
       category_l3: form.value.categoryL3,
     })
     showDispatchModal.value = false
-    await loadData()
+    // 重新加载信件列表
+    const prevLetterNo = selectedLetter.value['信件编号']
     selectedLetter.value = null
+    await loadData()
+    // 处理后选中该信件刷新流转记录
+    if (prevLetterNo && letters.value[prevLetterNo]) {
+      await selectLetter(letters.value[prevLetterNo])
+    }
   } catch {}
   submitting.value = false
 }
@@ -1005,6 +1032,8 @@ const sendAIChatMessage = async (manualMessage = null) => {
         }
       }
     }
+    // 解析 AI 命令并填充表单
+    processAIDispatchCommands(fullContent)
   } catch (e) {
     if (e.name === 'AbortError') {
       // 中断不显示错误
@@ -1048,6 +1077,26 @@ const buildChatMessages = (userMessage) => {
     letterPrompt += `- 诉求内容: ${selectedLetter.value['诉求内容'] || '-'}\n`
     letterPrompt += `- 当前分类: ${selectedLetter.value['信件一级分类'] || ''} / ${selectedLetter.value['信件二级分类'] || ''} / ${selectedLetter.value['信件三级分类'] || ''}\n`
 
+    // 添加可选的下发单位列表，确保 AI 只从列表中选取
+    if (dispatchUnits.value.length > 0) {
+      const unitList = dispatchUnits.value.map(u => u.fullName).filter(Boolean)
+      letterPrompt += `\n可用的下发单位列表（请严格从以下列表中选择，不要自行构造单位名称）:\n`
+      unitList.forEach((name, i) => {
+        letterPrompt += `  ${i + 1}. ${name}\n`
+      })
+    }
+
+    // 添加可选的分类列表
+    if (categories.value.length > 0) {
+      const catList = categories.value.map(c =>
+        [c['一级分类'], c['二级分类'], c['三级分类']].filter(Boolean).join(' / ')
+      )
+      letterPrompt += `\n可用的信件分类列表（请严格从以下列表中选择，不要自行构造分类名称）:\n`
+      catList.forEach((name, i) => {
+        letterPrompt += `  ${i + 1}. ${name}\n`
+      })
+    }
+
     const flow = selectedLetter.value._raw?.flow_records || []
     if (flow.length > 0) {
       letterPrompt += `\n流转记录:\n`
@@ -1078,6 +1127,122 @@ const scrollChatToBottom = () => {
 }
 
 // 加载老项目的下发提示词
+// 解析 AI ^json:[...]^ 命令，自动填充表单
+const processAIDispatchCommands = (fullContent) => {
+  // 1. 首先尝试解析 ^json:[...]^ 命令
+  const jsonMatch = fullContent.match(/\^json:(\[.*?\])\^/)
+  if (jsonMatch) {
+    try {
+      const commands = JSON.parse(jsonMatch[1])
+      if (Array.isArray(commands) && commands.length > 0) {
+        const fields = {}
+        commands.forEach(cmd => {
+          const target = cmd['目标'] || cmd.target || ''
+          const content = cmd['内容'] || cmd.content || ''
+          if (!target || !content) return
+          if (target.includes('分类')) fields.category = { content }
+          else if (target.includes('单位') || target.includes('下发')) fields.unit = { content }
+          else if (target.includes('专项关注')) fields.focus = { content }
+          else if (target.includes('备注')) fields.notes = { content }
+        })
+        aiCommandFields.value = fields
+        return
+      }
+    } catch {}
+  }
+
+  // 2. 如果没有 ^json: 命令，从自然语言中提取建议内容
+  const fields = {}
+  // 匹配下发单位建议：建议修改为"xxx" 或 建议下发单位为：**xxx**
+  const unitRe = /(?:建议)?(?:修改|下发)(?:单位)?[为:：]?\s*[*]*[「""]?([^」""*\n]+(?:\/[^」""*\n]+)*)/
+  const unitMatch = fullContent.match(unitRe)
+  if (unitMatch) {
+    const unit = unitMatch[1].trim()
+    if (unit.length > 2 && !unit.includes('不变') && !unit.includes('保持')) {
+      fields.unit = { content: unit }
+    }
+  }
+  // 匹配专项关注建议
+  const focusRe = /(?:建议)?(?:添加|设置|标注|专项关注)[为:：]?\s*[*]*[「""]?([^」""*\n]+)/
+  const focusMatch = fullContent.match(focusRe)
+  if (focusMatch) {
+    const focus = focusMatch[1].trim()
+    if (focus.length > 1 && !focus.includes('无') && !focus.includes('不') && !focus.includes('无需')) {
+      fields.focus = { content: focus }
+    }
+  }
+  // 匹配备注建议
+  const notesRe = /(?:建议)?(?:备注|添加备注)[为:：]?\s*[*]*[「""]?([^」""*\n]+)/
+  const notesMatch = fullContent.match(notesRe)
+  if (notesMatch) {
+    const notes = notesMatch[1].trim()
+    if (notes.length > 2) {
+      fields.notes = { content: notes }
+    }
+  }
+  // 匹配分类建议：分类为"xxx" 或 当前分类为"xxx"
+  const catRe = /(?:当前)?(?:建议)?(?:分类|修改分类)[为:：]?\s*[*]*[「""]?([^」""*\n]+(?:\/[^」""*\n]+)*)/
+  const catMatch = fullContent.match(catRe)
+  if (catMatch) {
+    const cat = catMatch[1].trim()
+    if (cat.length > 2 && !cat.includes('不变') && !cat.includes('保持')) {
+      fields.category = { content: cat }
+    }
+  }
+  aiCommandFields.value = fields
+}
+
+// 采纳指定字段（或一键全部填充）
+const acceptField = (field) => {
+  const fields = aiCommandFields.value
+  if (field === 'all') {
+    Object.keys(fields).forEach(k => acceptField(k))
+    return
+  }
+  // 从原始内容中重新解析并填充
+  const content = fields[field]?.content
+  if (!content) return
+  // 清理标记符号
+  const clean = (s) => s.replace(/[*]+/g, '').replace(/[「」""""【】]/g, '').trim()
+  if (field === 'category') {
+    const parts = clean(content).split('/').map(p => p.trim())
+    if (parts.length >= 1) form.value.categoryL1 = parts[0]
+    if (parts.length >= 2) form.value.categoryL2 = parts[1]
+    if (parts.length >= 3) form.value.categoryL3 = parts[2]
+    selectedCategory.value = parts.filter(Boolean).join(' / ')
+  } else if (field === 'unit') {
+    const cleanContent = clean(content).split('/').map(p => p.trim()).join(' / ')
+    // 从 dispatchUnits 中匹配对应的单位
+    const matched = dispatchUnits.value.find(u => u.fullName === cleanContent)
+    if (matched) {
+      selectDispatchUnit(matched)
+    } else {
+      // 模糊匹配：尝试匹配最后一级（level3）
+      const parts = cleanContent.split(' / ')
+      const lastPart = parts[parts.length - 1]
+      const fuzzy = dispatchUnits.value.find(u =>
+        u.level3 === lastPart || u.level2 === lastPart || u.fullName.includes(lastPart)
+      )
+      if (fuzzy) {
+        selectDispatchUnit(fuzzy)
+      } else {
+        form.value.unit = cleanContent
+      }
+    }
+  } else if (field === 'focus') {
+    try {
+      const tags = JSON.parse(content)
+      if (Array.isArray(tags) && tags.length > 0) {
+        selectedFocus.value = tags.join('、')
+      }
+    } catch {
+      selectedFocus.value = content.replace(/[\[\]""''【】]/g, '').trim()
+    }
+  } else if (field === 'notes') {
+    form.value.notes = content
+  }
+}
+
 const loadDispatchPrompt = async () => {
   if (dispatchPrompt.value) return // 已加载
   try {
@@ -1251,5 +1416,40 @@ onUnmounted(() => {
 .controls-row .wp-select {
   padding: 4px 6px;
   font-size: 12px;
+}
+
+/* AI 采纳按钮 */
+.ai-action-buttons {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+.ai-btn-accept {
+  padding: 3px 10px;
+  border: 1px solid #3b82f6;
+  color: #3b82f6;
+  background: #eff6ff;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.ai-btn-accept:hover {
+  background: #3b82f6;
+  color: #fff;
+}
+.ai-btn-fill-all {
+  padding: 3px 12px;
+  border: none;
+  color: #fff;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.ai-btn-fill-all:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
 }
 </style>
