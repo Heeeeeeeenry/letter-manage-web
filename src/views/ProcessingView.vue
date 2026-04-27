@@ -128,10 +128,13 @@
               </div>
             </div>
 
-            <!-- Main content area - tab switching (matching old platform) -->
-            <div class="flex-1 workspace-main">
-              <!-- 流转记录 Tab -->
-              <div class="tab-content" :class="{ active: activeTab === 'flow' }">
+            <!-- Main content area - all tabs content in one scrollable box -->
+            <div class="workspace-main" ref="workspaceMainRef">
+              <!-- 流转记录 Section -->
+              <div id="section-flow" class="tab-section" ref="sectionFlowRef">
+                <div class="section-header">
+                  <i class="fas fa-exchange-alt"></i> 流转记录
+                </div>
                 <div class="tab-body">
                   <div v-if="loadingFlow" class="placeholder-text">
                     <i class="fas fa-spinner fa-spin"></i> 加载中...
@@ -169,8 +172,11 @@
                 </div>
               </div>
 
-              <!-- 历史来信 Tab -->
-              <div class="tab-content" :class="{ active: activeTab === 'history' }">
+              <!-- 历史来信 Section -->
+              <div id="section-history" class="tab-section" ref="sectionHistoryRef">
+                <div class="section-header">
+                  <i class="fas fa-history"></i> 历史来信
+                </div>
                 <div class="tab-body">
                   <div v-if="loadingHistory" class="placeholder-text">
                     <i class="fas fa-spinner fa-spin"></i> 加载中...
@@ -192,8 +198,11 @@
                 </div>
               </div>
 
-              <!-- 信件处理 Tab -->
-              <div class="tab-content" :class="{ active: activeTab === 'handle' }">
+              <!-- 信件处理 Section -->
+              <div id="section-handle" class="tab-section" ref="sectionHandleRef">
+                <!-- <div class="section-header">
+                  <i class="fas fa-edit"></i> 信件处理
+                </div> -->
                 <div class="tab-body">
                   <!-- 步骤标题 + 指示器 -->
                   <div class="handle-step-tab-header" style="display:flex;align-items:center;gap:6px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #e5e7eb;">
@@ -429,7 +438,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { getProcessingList, getDetail, submitProcessing, returnLetter, markInvalid, analyzeLetter, getCategories, getByIdcard } from '@/api/letter'
 import { normalizeFlowRecords } from '@/utils/flow'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -507,6 +516,11 @@ const urgencyBadgeClass = (u) => {
   if (val >= 3) return 'bg-yellow-100 text-yellow-600'
   return 'bg-green-100 text-green-600'
 }
+
+const workspaceMainRef = ref(null)
+const sectionFlowRef = ref(null)
+const sectionHistoryRef = ref(null)
+const sectionHandleRef = ref(null)
 
 const selectLetter = async (letter) => {
   selectedLetter.value = letter
@@ -895,6 +909,20 @@ if (typeof document !== 'undefined') {
 // 点击左侧标签 → 切换中间内容区，对标老系统 sidebar-item 点击事件
 const switchTab = (tabId) => {
   activeTab.value = tabId
+  const container = workspaceMainRef.value
+  if (!container) return
+  const sectionMap = {
+    flow: sectionFlowRef.value,
+    history: sectionHistoryRef.value,
+    handle: sectionHandleRef.value
+  }
+  const targetSection = sectionMap[tabId]
+  if (targetSection) {
+    container.scrollTo({
+      top: targetSection.offsetTop - container.offsetTop - 12,
+      behavior: 'smooth'
+    })
+  }
 }
 
 // 点击历史来信条目 → 滚动到该条目的位置（在当前 tab-body 内部滚动）
@@ -949,6 +977,38 @@ const loadData = async () => {
   loadingList.value = false
 }
 
+// ──── Scroll spy ────
+const setupScrollSpy = () => {
+  const container = workspaceMainRef.value
+  if (!container) return
+  const sectionIds = ['flow', 'history', 'handle']
+  const sectionRefs = [sectionFlowRef, sectionHistoryRef, sectionHandleRef]
+  const handleScroll = () => {
+    const scrollTop = container.scrollTop
+    for (let i = sectionRefs.length - 1; i >= 0; i--) {
+      const section = sectionRefs[i].value
+      if (section && section.offsetTop - container.offsetTop <= scrollTop + 60) {
+        activeTab.value = sectionIds[i]
+        break
+      }
+    }
+  }
+  container.addEventListener('scroll', handleScroll)
+  return () => container.removeEventListener('scroll', handleScroll)
+}
+
+let removeScrollSpy = null
+watch(selectedLetter, async (newVal) => {
+  if (removeScrollSpy) {
+    removeScrollSpy()
+    removeScrollSpy = null
+  }
+  if (newVal) {
+    await nextTick()
+    removeScrollSpy = setupScrollSpy()
+  }
+})
+
 onMounted(async () => {
   await loadData()
   await loadCategories()
@@ -961,32 +1021,41 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (removeScrollSpy) removeScrollSpy()
   if (pollTimer) clearInterval(pollTimer)
   if (processingTimer) clearInterval(processingTimer)
 })
 </script>
 
 <style scoped>
-/* 标签页内容切换 (对标老系统 workspace-main / .tab-content / .tab-body) */
+/* 标签页内容切换 (对标老系统 workspace-main / .tab-section / .tab-body) */
 .workspace-main {
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
 }
-.tab-content {
-  flex: 1;
-  display: none;
-  flex-direction: column;
-  overflow: hidden;
+.tab-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
 }
-.tab-content.active {
+.tab-section:last-child {
+  border-bottom: none;
+}
+.section-header {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 12px;
+}
+.section-header i {
+  color: #3b82f6;
 }
 .tab-body {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
+  padding: 0;
 }
 
 /* 信件处理步骤指示器（老系统风格） */
