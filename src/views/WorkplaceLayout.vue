@@ -120,7 +120,20 @@ const loadMenu = async () => {
   try {
     const res = await getMenu()
     if (res.success) {
-      menuData.value = res.data.menu || []
+      let menu = res.data.menu || []
+      // 调换“处理工作台”和“下发工作台”的位置
+      menu.forEach(group => {
+        if (group.group === '业务办理') {
+          const processingIdx = group.items.findIndex(i => i.id === 'processing')
+          const dispatchIdx = group.items.findIndex(i => i.id === 'dispatch')
+          if (processingIdx !== -1 && dispatchIdx !== -1) {
+            const temp = group.items[processingIdx]
+            group.items[processingIdx] = group.items[dispatchIdx]
+            group.items[dispatchIdx] = temp
+          }
+        }
+      })
+      menuData.value = menu
       currentUser.value = res.data.user || null
     }
   } catch (e) {

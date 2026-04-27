@@ -99,7 +99,7 @@ const periods = [
 const summaryCards = [
   { key: '信件总量', label: '信件总量', icon: 'fa-envelope', color: 'text-blue-600', bg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)' },
   { key: '预处理', label: '预处理', icon: 'fa-clock', color: 'text-yellow-600', bg: 'linear-gradient(135deg,#fef9c3,#fef08a)' },
-  { key: '正在处理', label: '正在处理', icon: 'fa-spinner', color: 'text-green-600', bg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' },
+  { key: '处理中', label: '处理中', icon: 'fa-spinner', color: 'text-green-600', bg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' },
   { key: '已完成', label: '已完成', icon: 'fa-check-circle', color: 'text-purple-600', bg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' },
 ]
 
@@ -110,8 +110,8 @@ const initCharts = (data) => {
 
   const statusData = data?.['状态分布'] || [
     { name: '预处理', value: data?.['预处理'] || 0 },
-    { name: '正在处理', value: data?.['正在处理'] || 0 },
-    { name: '正在反馈', value: data?.['正在反馈'] || 0 },
+    { name: '处理中', value: data?.['处理中'] || 0 },
+    { name: '待分县局/支队审核', value: data?.['待分县局/支队审核'] || 0 },
     { name: '已完成', value: data?.['已完成'] || 0 },
     { name: '已无效', value: data?.['已无效'] || 0 },
   ]

@@ -1,83 +1,64 @@
 <template>
-  <div class="h-full flex flex-col gap-4">
+  <div class="dispatch-container h-full flex flex-col">
     <!-- Header -->
-    <div class="wp-header" id="dispatch-header">
-      <div class="flex items-center gap-3">
-        <div class="wp-panel-icon" style="background:linear-gradient(135deg,#fef9c3,#fef08a)">
+    <div class="wp-header flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 rounded-xl border border-gray-200 mb-6 flex-shrink-0" id="dispatch-header">
+      <div class="wp-header-left flex items-center gap-3">
+        <div class="wp-header-icon w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
           <i class="fas fa-paper-plane text-yellow-600"></i>
         </div>
-        <div>
-          <div class="wp-panel-title">下发工作台</div>
-          <div class="text-xs text-gray-400 mt-0.5">待下发信件处理与AI智能分析</div>
+        <div class="wp-header-content flex flex-col gap-0.5">
+          <div class="wp-header-title text-lg font-bold text-gray-900">下发工作台</div>
+          <div class="wp-header-subtitle text-xs text-gray-400">将预处理信件下发至指定单位办理</div>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <button class="wp-btn wp-btn-primary text-xs py-1 px-3" @click="autoDispatchAll" :disabled="autoDispatchingAll || Object.keys(letters).length === 0">
+      <div class="wp-header-right flex items-center gap-4">
+        <label class="wp-checkbox warning flex items-center gap-1.5 px-4 py-1.5 bg-red-50 rounded-xl cursor-pointer">
+          <input type="checkbox" class="checkbox-input w-3.5 h-3.5 accent-red-500" id="auto-dispatch-check" v-model="autoDispatchEnabled" />
+          <span class="wp-checkbox-label text-xs text-red-800 font-medium">自动下发</span>
+        </label>
+        <div class="wp-count-badge flex items-center gap-1 px-4 py-1.5 bg-blue-50 rounded-xl">
+          <span class="wp-count-value text-2xl font-extrabold text-blue-600">{{ Object.keys(letters).length }}</span>
+          <span class="wp-count-label text-xs text-gray-500">封待处理</span>
+        </div>
+        <button class="bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5" @click="autoDispatchAll" :disabled="autoDispatchingAll || Object.keys(letters).length === 0">
           <i class="fas fa-robot" :class="{ 'fa-spin': autoDispatchingAll }"></i>
           {{ autoDispatchingAll ? '自动下发中...' : '全部自动下发' }}
         </button>
-        <span class="text-sm text-gray-500">待下发：</span>
-        <span class="wp-badge wp-badge-yellow font-bold">{{ Object.keys(letters).length }}</span>
       </div>
     </div>
 
-    <!-- Split layout -->
-    <div class="flex gap-4 flex-1 overflow-hidden">
-      <!-- Left: letter list -->
-      <div class="wp-panel flex flex-col" style="width:340px;flex-shrink:0" id="letter-list-panel">
-        <div class="wp-panel-header compact">
-          <span class="text-sm font-semibold text-gray-700">信件列表</span>
-          <div class="flex gap-2">
-            <button class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="loadData" :title="'刷新列表'">
-              <i class="fas fa-sync-alt" :class="{ 'fa-spin': loadingList }"></i>
-            </button>
-          </div>
+    <!-- Main content -->
+    <div class="dispatch-main-content flex-1 flex overflow-hidden gap-4">
+      <!-- Left: letter list panel -->
+      <div class="dispatch-letter-list-panel w-[280px] bg-white rounded-xl border border-gray-200 overflow-y-auto p-3" id="letter-list-panel">
+        <div v-if="loadingList && Object.keys(letters).length === 0" class="text-center py-8 text-gray-400 text-sm">
+          <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
         </div>
-        <div class="wp-scroll">
-          <!-- Loading state -->
-          <div v-if="loadingList && Object.keys(letters).length === 0" class="text-center py-8 text-gray-400">
-            <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
+        <div v-else-if="Object.keys(letters).length === 0" class="text-center py-12 text-gray-400">
+          <i class="fas fa-check-circle text-green-400 text-3xl mb-2 block"></i>
+          <span class="text-sm">暂无待下发信件</span>
+        </div>
+        <div
+          v-for="letter in sortedLetters"
+          :key="letter['信件编号']"
+          class="dispatch-list-item p-3.5 rounded-xl cursor-pointer border border-gray-200 mb-2.5 bg-white shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-colors"
+          :class="{ 'border-blue-200 bg-blue-50': selectedLetter?.['信件编号'] === letter['信件编号'] }"
+          @click="selectLetter(letter)"
+        >
+          <div class="dispatch-item-category text-xs text-blue-600 font-medium mb-1">{{ letter['信件三级分类'] || letter['信件二级分类'] || letter['信件一级分类'] || '未分类' }}</div>
+          <div class="dispatch-item-number text-xs font-mono text-gray-700 mb-1">{{ letter['信件编号'] }}</div>
+          <div class="dispatch-item-meta flex items-center gap-3 text-xs text-gray-400">
+            <span class="dispatch-item-citizen"><i class="fas fa-user mr-1"></i> {{ letter['群众姓名'] || '匿名' }}</span>
+            <span class="dispatch-item-time"><i class="far fa-clock mr-1"></i> {{ formatTime(letter['来信时间']) }}</span>
           </div>
-          <!-- Empty state -->
-          <div v-else-if="Object.keys(letters).length === 0" class="text-center py-12 text-gray-400">
-            <i class="fas fa-check-circle text-green-400 text-3xl mb-2 block"></i>
-            暂无待下发信件
-          </div>
-          <!-- Letter cards -->
-          <div
-            v-for="letter in sortedLetters"
-            :key="letter['信件编号']"
-            class="wp-list-item"
-            :class="{ active: selectedLetter?.['信件编号'] === letter['信件编号'] }"
-            @click="selectLetter(letter)"
-          >
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-xs font-mono text-blue-600 font-medium">{{ letter['信件编号'] }}</span>
-              <StatusBadge :status="letter['信件状态']" />
-            </div>
-            <div class="flex items-center gap-2 mb-1">
-              <i class="fas fa-user text-gray-400 text-xs"></i>
-              <span class="text-sm font-medium text-gray-800">{{ letter['群众姓名'] || '匿名' }}</span>
-              <span v-if="letter['紧急程度']" class="text-xs px-1.5 py-0.5 rounded"
-                :class="urgencyBadgeClass(letter['紧急程度'])">
-                {{ letter['紧急程度'] }}
-              </span>
-            </div>
-            <div class="text-xs text-gray-500 mt-1 truncate leading-relaxed">{{ letter['诉求内容'] || '无内容' }}</div>
-            <div class="flex items-center justify-between mt-1.5">
-              <span class="text-xs text-gray-400">
-                <i class="far fa-clock mr-0.5"></i>{{ formatTime(letter['来信时间']) }}
-              </span>
-              <span v-if="letter['_ai_analyzed']" class="text-xs text-purple-500">
-                <i class="fas fa-robot mr-0.5"></i>已分析
-              </span>
-            </div>
+          <div v-if="letter['_ai_analyzed']" class="text-xs text-purple-500 mt-1">
+            <i class="fas fa-robot mr-0.5"></i>已分析
           </div>
         </div>
       </div>
 
       <!-- Right: detail panel -->
-      <div class="wp-panel flex-1 flex flex-col overflow-hidden" id="letter-detail-panel">
+      <div class="dispatch-letter-detail-panel flex-1 flex flex-col overflow-hidden bg-white rounded-xl border border-gray-200" id="letter-detail-panel">
         <!-- No selection state -->
         <div v-if="!selectedLetter" class="flex-1 flex items-center justify-center text-gray-400">
           <div class="text-center">
@@ -88,36 +69,73 @@
         </div>
 
         <template v-else>
-          <!-- Detail header with actions -->
-          <div class="wp-panel-header compact border-b border-gray-100">
+          <!-- Detail header bar -->
+          <div class="wp-panel-header compact flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200 flex-shrink-0">
             <div class="flex items-center gap-2">
               <i class="fas fa-envelope text-gray-400"></i>
               <span class="text-sm font-semibold text-gray-700">{{ selectedLetter['信件编号'] }}</span>
               <StatusBadge :status="selectedLetter['信件状态']" />
             </div>
             <div class="flex gap-2">
-              <button class="wp-btn text-xs py-1 px-2" :class="aiAnalyzing ? 'wp-btn-disabled' : 'wp-btn-info'"
+              <button class="text-xs py-1 px-2 rounded-lg flex items-center gap-1" :class="aiAnalyzing ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'"
                 @click="runAIAnalysis" :disabled="aiAnalyzing">
                 <i class="fas fa-robot" :class="{ 'fa-spin': aiAnalyzing }"></i>
                 {{ aiAnalyzing ? '分析中...' : 'AI分析' }}
               </button>
-              <button class="wp-btn wp-btn-danger text-xs py-1 px-2" @click="handleInvalid">
+              <button class="text-xs py-1 px-2 rounded-lg flex items-center gap-1 bg-red-100 text-red-700 hover:bg-red-200" @click="handleInvalid">
                 <i class="fas fa-ban"></i>标记无效
-              </button>
-              <button class="wp-btn wp-btn-primary text-xs py-1 px-2" @click="handleBySelf">
-                <i class="fas fa-user-check"></i>由我处理
-              </button>
-              <button class="wp-btn wp-btn-success text-xs py-1 px-2" @click="handleDispatch">
-                <i class="fas fa-paper-plane"></i>下发
               </button>
             </div>
           </div>
 
-          <div class="flex-1 overflow-y-auto">
-            <!-- AI Analysis Results -->
-            <div v-if="aiResult" class="mx-4 mt-4 p-3 rounded-lg border"
+          <!-- Scrollable middle area -->
+          <div class="flex-1 overflow-y-auto flex flex-col" ref="detailScrollRef" style="contain:layout size">
+            <!-- dispatch-detail-top -->
+            <div class="dispatch-detail-top flex border-b border-gray-100">
+              <div class="dispatch-detail-info w-2/5 border-r border-gray-100 p-3 overflow-y-auto">
+                <div class="wp-info-row flex items-center gap-2 py-1">
+                  <i class="fas fa-envelope text-gray-400 text-[13px] w-4 text-center flex-shrink-0"></i>
+                  <span class="text-xs text-gray-700 font-medium overflow-hidden text-ellipsis whitespace-nowrap">{{ selectedLetter['信件编号'] || '-' }}</span>
+                </div>
+                <div class="wp-info-row flex items-center gap-2 py-1">
+                  <i class="fas fa-tags text-gray-400 text-[13px] w-4 text-center flex-shrink-0"></i>
+                  <span class="text-xs text-gray-700 font-medium overflow-hidden text-ellipsis whitespace-nowrap">{{ selectedLetter['信件一级分类'] || '' }}{{ selectedLetter['信件二级分类'] ? ' / ' + selectedLetter['信件二级分类'] : '' }}{{ selectedLetter['信件三级分类'] ? ' / ' + selectedLetter['信件三级分类'] : '' || '-' }}</span>
+                </div>
+                <div class="wp-info-row flex items-center gap-2 py-1">
+                  <i class="fas fa-clock text-gray-400 text-[13px] w-4 text-center flex-shrink-0"></i>
+                  <input type="text" readonly :value="formatTime(selectedLetter['来信时间'])" placeholder="-" class="text-xs text-gray-700 font-medium border-none bg-transparent outline-none flex-1 p-0 cursor-pointer" />
+                </div>
+                <div class="wp-info-row flex items-center gap-2 py-1">
+                  <i class="fas fa-user text-gray-400 text-[13px] w-4 text-center flex-shrink-0"></i>
+                  <input type="text" readonly :value="selectedLetter['群众姓名'] || ''" placeholder="-" class="text-xs text-gray-700 font-medium border-none bg-transparent outline-none flex-1 p-0 cursor-pointer" />
+                </div>
+                <div class="wp-info-row flex items-center gap-2 py-1">
+                  <i class="fas fa-phone text-gray-400 text-[13px] w-4 text-center flex-shrink-0"></i>
+                  <input type="text" readonly :value="selectedLetter['手机号'] || ''" placeholder="-" class="text-xs text-gray-700 font-medium border-none bg-transparent outline-none flex-1 p-0 cursor-pointer" />
+                </div>
+                <div class="wp-info-row flex items-center gap-2 py-1">
+                  <i class="fas fa-id-card text-gray-400 text-[13px] w-4 text-center flex-shrink-0"></i>
+                  <input type="text" readonly :value="selectedLetter['身份证号'] || ''" placeholder="-" class="text-xs text-gray-700 font-medium border-none bg-transparent outline-none flex-1 p-0 cursor-pointer" />
+                </div>
+                <div class="wp-info-row flex items-center gap-2 py-1">
+                  <i class="fas fa-inbox text-gray-400 text-[13px] w-4 text-center flex-shrink-0"></i>
+                  <span class="text-xs text-gray-700 font-medium">{{ selectedLetter['来源'] || '-' }}</span>
+                </div>
+              </div>
+              <div class="dispatch-detail-content w-3/5 p-3 flex flex-col">
+                <div class="dispatch-content-header flex items-center gap-1.5 mb-1">
+                  <i class="fas fa-align-left text-gray-400 text-[13px]"></i>
+                  <span class="text-[13px] font-semibold text-gray-700">诉求内容</span>
+                </div>
+                <textarea class="dispatch-appeal-textarea flex-1 w-full text-[13px] text-gray-700 bg-transparent border-none outline-none resize-none p-0 leading-relaxed"
+                  v-model="form.content" placeholder="请输入诉求内容..."></textarea>
+              </div>
+            </div>
+
+            <!-- AI Analysis Results banner -->
+            <div v-if="aiResult" class="mx-3 mt-2 p-2.5 rounded-lg border flex-shrink-0"
               :class="aiResult._error ? 'border-red-200 bg-red-50' : 'border-purple-200 bg-purple-50'">
-              <div class="flex items-center gap-2 mb-2">
+              <div class="flex items-center gap-2 mb-1.5">
                 <i class="fas fa-robot text-purple-500"></i>
                 <span class="text-xs font-semibold text-purple-700">AI分析结果</span>
                 <button class="ml-auto text-gray-400 hover:text-gray-600 text-xs" @click="aiResult = null">
@@ -125,7 +143,7 @@
                 </button>
               </div>
               <template v-if="!aiResult._error">
-                <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                   <div><span class="text-gray-500">摘要：</span><span class="text-gray-700">{{ aiResult.summary || '-' }}</span></div>
                   <div><span class="text-gray-500">情绪：</span>
                     <span class="px-1.5 py-0.5 rounded" :class="sentimentBadge(aiResult.sentiment)">{{ aiResult.sentiment || '-' }}</span>
@@ -137,11 +155,11 @@
                   </div>
                   <div class="col-span-2"><span class="text-gray-500">建议理由：</span><span class="text-gray-600">{{ aiResult.reason || '-' }}</span></div>
                 </div>
-                <div class="mt-2 flex gap-2">
-                  <button class="wp-btn wp-btn-success text-xs py-1 px-2" @click="applyAISuggestions">
+                <div class="mt-1.5 flex gap-2">
+                  <button class="bg-green-500 text-white text-xs py-0.5 px-2 rounded-lg hover:bg-green-600 flex items-center gap-1" @click="applyAISuggestions">
                     <i class="fas fa-check mr-1"></i>采纳建议
                   </button>
-                  <button class="wp-btn wp-btn-primary text-xs py-1 px-2" @click="autoDispatchSingle(selectedLetter)">
+                  <button class="bg-blue-500 text-white text-xs py-0.5 px-2 rounded-lg hover:bg-blue-600 flex items-center gap-1" @click="autoDispatchSingle(selectedLetter)">
                     <i class="fas fa-robot mr-1"></i>AI自动下发
                   </button>
                 </div>
@@ -151,160 +169,159 @@
               </template>
             </div>
 
-            <!-- Letter detail form -->
-            <div class="p-4 space-y-4">
-              <!-- Basic info -->
-              <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <div>
-                  <label class="text-xs text-gray-500 mb-1 block">
-                    <i class="fas fa-user mr-1"></i>来信人
-                  </label>
-                  <input class="wp-input text-sm" v-model="form.name" placeholder="群众姓名" />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-500 mb-1 block">
-                    <i class="fas fa-phone mr-1"></i>手机号
-                  </label>
-                  <input class="wp-input text-sm" v-model="form.phone" placeholder="手机号" />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-500 mb-1 block">
-                    <i class="fas fa-id-card mr-1"></i>身份证号
-                  </label>
-                  <input class="wp-input text-sm" v-model="form.idcard" placeholder="身份证号" />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-500 mb-1 block">
-                    <i class="far fa-calendar mr-1"></i>来信时间
-                  </label>
-                  <input class="wp-input text-sm" v-model="form.time" />
-                </div>
-              </div>
-
-              <!-- Content -->
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">
-                  <i class="fas fa-align-left mr-1"></i>诉求内容
-                </label>
-                <textarea class="wp-input text-sm resize-none" rows="4" v-model="form.content"
-                  placeholder="请输入诉求内容..."></textarea>
-              </div>
-
-              <!-- Category 3-level cascade -->
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">
-                  <i class="fas fa-tags mr-1"></i>信件分类
-                </label>
-                <div class="flex gap-2">
-                  <select class="wp-select text-sm flex-1" v-model="form.categoryL1" @change="onCategoryL1Change">
-                    <option value="">一级分类</option>
-                    <option v-for="l1 in categoryTree" :key="l1.name" :value="l1.name">{{ l1.name }}</option>
-                  </select>
-                  <select class="wp-select text-sm flex-1" v-model="form.categoryL2" @change="onCategoryL2Change">
-                    <option value="">二级分类</option>
-                    <option v-for="l2 in currentL2List" :key="l2.name" :value="l2.name">{{ l2.name }}</option>
-                  </select>
-                  <select class="wp-select text-sm flex-1" v-model="form.categoryL3">
-                    <option value="">三级分类</option>
-                    <option v-for="l3 in currentL3List" :key="l3.name" :value="l3.name">{{ l3.name }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- Dispatch unit -->
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">
-                  <i class="fas fa-building mr-1"></i>下发单位
-                </label>
-                <div class="flex gap-2">
-                  <div class="relative flex-1">
-                    <!-- 显示选中的单位 -->
-                    <div class="wp-input cursor-pointer flex items-center justify-between" @click="showUnitDropdown = !showUnitDropdown">
-                      <span class="truncate">{{ form.unit || '请选择下发单位' }}</span>
-                      <i class="fas fa-chevron-down text-gray-400 text-sm transition-transform" :class="{ 'rotate-180': showUnitDropdown }"></i>
-                    </div>
-                    
-                    <!-- 下拉面板 -->
-                    <div v-if="showUnitDropdown" class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-hidden flex flex-col">
-                      <!-- 搜索框 -->
-                      <div class="p-2 border-b border-gray-100">
-                        <div class="relative">
-                          <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-                          <input 
-                            v-model="unitSearchKeyword" 
-                            class="wp-input pl-7 text-sm w-full" 
-                            placeholder="搜索单位..." 
-                            @click.stop
-                          />
-                        </div>
-                      </div>
-                      
-                      <!-- 单位列表 -->
-                      <div class="overflow-y-auto flex-1">
-                        <div v-if="filteredDispatchUnits.length === 0" class="text-center py-4 text-gray-400 text-sm">
-                          未找到匹配的单位
-                        </div>
-                        <div 
-                          v-else
-                          v-for="u in filteredDispatchUnits" 
-                          :key="u.system_code || u.id"
-                          class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50 last:border-b-0"
-                          :class="{ 'bg-blue-50 text-blue-600': form.unit === u.fullName }"
-                          @click="selectDispatchUnit(u)"
-                        >
-                          {{ u.fullName }}
-                        </div>
-                      </div>
+            <!-- dispatch-detail-middle -->
+            <div class="dispatch-detail-middle flex flex-col flex-1" id="detail-middle">
+              <div class="dispatch-ai-chat-messages flex-1 overflow-y-auto px-3 py-2 space-y-2" id="ai-chat-messages" ref="chatMessagesRef">
+                <template v-if="aiChatMessages.length === 0">
+                  <div class="text-center py-6 text-gray-400 text-xs">
+                    <i class="fas fa-comment-dots text-gray-300 text-xl mb-1 block"></i>
+                    <p>与AI助手对话，获取信件处理建议</p>
+                  </div>
+                </template>
+                <template v-for="(msg, idx) in aiChatMessages" :key="idx">
+                  <div :class="['dispatch-ai-message', msg.role === 'user' ? 'dispatch-ai-message-user flex justify-end' : 'dispatch-ai-message-ai flex justify-start']">
+                    <div class="dispatch-ai-message-content p-2 rounded-lg text-sm max-w-[85%]"
+                      :class="msg.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800'">
+                      <div class="dispatch-ai-message-text whitespace-pre-wrap">{{ msg.content }}</div>
                     </div>
                   </div>
-                  
-                  <button v-if="aiResult?.suggested_unit" class="text-xs text-purple-500 hover:text-purple-700"
-                    @click="form.unit = matchUnitByName(aiResult.suggested_unit)" title="使用AI建议的单位">
-                    <i class="fas fa-magic mr-1"></i>采纳
-                  </button>
-                </div>
-                
-                <!-- 点击外部关闭下拉的透明层 -->
-                <div v-if="showUnitDropdown" class="fixed inset-0 z-40" @click="showUnitDropdown = false"></div>
-              </div>
-
-              <!-- Notes -->
-              <div>
-                <label class="text-xs text-gray-500 mb-1 block">
-                  <i class="fas fa-sticky-note mr-1"></i>下发备注
-                </label>
-                <textarea class="wp-input text-sm resize-none" rows="2" v-model="form.notes"
-                  placeholder="请输入下发备注..."></textarea>
-              </div>
-
-              <!-- Flow records -->
-              <div>
-                <div class="flex items-center gap-2 mb-3">
-                  <i class="fas fa-exchange-alt text-gray-400"></i>
-                  <span class="text-sm font-medium text-gray-700">流转记录</span>
-                </div>
-                <div v-if="!flowRecords.length" class="text-xs text-gray-400 py-4 text-center">
-                  <i class="fas fa-info-circle mr-1"></i>暂无流转记录
-                </div>
-                <div v-else class="wp-timeline">
-                  <div v-for="(rec, idx) in flowRecords" :key="idx" class="wp-timeline-item">
-                    <div class="wp-timeline-dot"
-                      :class="{ 'bg-blue-400': rec.action === 'dispatch', 'bg-green-400': rec.action === 'process', 'bg-yellow-400': rec.action === 'create', 'bg-red-400': rec.action === 'return', 'bg-gray-400': !['dispatch', 'process', 'create', 'return'].includes(rec.action) }">
-                    </div>
-                    <div class="text-sm ml-3">
-                      <div class="flex items-center gap-2">
-                        <span class="font-medium text-gray-800">{{ getFlowActionLabel(rec) }}</span>
-                        <span class="text-gray-400 text-xs">{{ rec.operator || '-' }}</span>
-                        <span class="text-gray-300 text-xs ml-auto">{{ formatTime(rec.timestamp) }}</span>
-                      </div>
-                      <div v-if="rec.from_unit || rec.to_unit" class="text-xs text-gray-500 mt-0.5">
-                        {{ rec.from_unit || '—' }} <i class="fas fa-arrow-right text-gray-300 mx-1"></i> {{ rec.to_unit || '—' }}
-                      </div>
-                      <div v-if="rec.remark" class="text-xs text-gray-400 mt-0.5 italic">备注：{{ rec.remark }}</div>
+                </template>
+                <!-- Typing indicator -->
+                <div v-if="aiChatProcessing" class="dispatch-ai-message dispatch-ai-message-ai flex justify-start">
+                  <div class="dispatch-ai-message-content p-2 rounded-lg text-sm bg-gray-100 text-gray-800 max-w-[85%]">
+                    <div class="typing-indicator flex gap-1">
+                      <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0s"></span>
+                      <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0.15s"></span>
+                      <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0.3s"></span>
                     </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+          <!-- End scrollable middle area -->
+
+          <!-- dispatch-detail-bottom -->
+          <div class="dispatch-detail-bottom flex-shrink-0">
+
+            <!-- AI chat input row -->
+            <div class="dispatch-ai-chat-input-wrapper">
+              <div class="dispatch-ai-chat-input-container flex items-center gap-2 px-3 py-1.5 bg-white">
+                <input
+                  type="text"
+                  class="dispatch-ai-chat-input flex-1 text-xs border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  id="ai-chat-input"
+                  v-model="aiChatInput"
+                  @keydown.enter.prevent="sendAIChatMessage"
+                  placeholder="请输入您的问题..."
+                  :disabled="aiChatProcessing"
+                />
+                <button
+                  class="dispatch-ai-chat-send px-3 py-1.5 rounded-lg text-xs flex items-center gap-1"
+                  :class="aiChatProcessing ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'"
+                  id="btn-send-message"
+                  @click="sendAIChatMessage"
+                  :disabled="aiChatProcessing"
+                >
+                  <i class="fas fa-paper-plane"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- dispatch-controls-row -->
+            <div class="dispatch-bottom-row dispatch-controls-row flex items-center gap-2 px-3 py-1.5 flex-wrap">
+              <!-- Category dropdown -->
+              <div class="dispatch-searchable-select relative" style="width:240px" :class="{ active: categoryDropdownOpen }" id="category-select-container">
+                <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="toggleCategoryDropdown">
+                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer"
+                    id="category-select-input"
+                    :value="selectedCategory"
+                    placeholder="选择信件分类..." readonly>
+                  <i class="fas fa-chevron-down text-gray-400 text-xs dispatch-select-arrow"></i>
+                </div>
+                <div class="dispatch-select-dropdown absolute bottom-full left-0 right-0 bg-white border border-gray-200 rounded-lg mb-1 z-50 shadow-lg max-h-60 overflow-y-auto" v-show="categoryDropdownOpen">
+                  <div class="dispatch-select-search p-2 border-b border-gray-100">
+                    <input type="text" class="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-blue-400" id="category-search"
+                      v-model="categorySearch" @input="filterCategories"
+                      placeholder="搜索分类..." @click.stop>
+                  </div>
+                  <div class="dispatch-select-options" id="category-select-options">
+                    <div v-for="cat in filteredCategories" :key="cat['三级分类']"
+                      class="dispatch-select-option px-3 py-1.5 text-xs cursor-pointer hover:bg-blue-50"
+                      :class="{ 'bg-blue-100 text-blue-700 font-medium': selectedCategory === cat['一级分类'] + ' / ' + cat['二级分类'] + ' / ' + cat['三级分类'] }"
+                      @click="selectCategory(cat)"
+                    >{{ cat['一级分类'] + ' / ' + cat['二级分类'] + ' / ' + cat['三级分类'] }}</div>
+                    <div v-if="filteredCategories.length === 0" class="dispatch-select-option px-3 py-1.5 text-xs text-gray-400 disabled">无匹配分类</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Unit dropdown -->
+              <div class="dispatch-searchable-select relative" style="width:180px" :class="{ active: showUnitDropdown }" id="unit-select-container">
+                <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="showUnitDropdown = !showUnitDropdown">
+                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer" id="unit-select-input"
+                    :value="form.unit"
+                    placeholder="选择下发单位..." readonly>
+                  <i class="fas fa-chevron-down text-gray-400 text-xs dispatch-select-arrow"></i>
+                </div>
+                <div class="dispatch-select-dropdown absolute bottom-full left-0 right-0 bg-white border border-gray-200 rounded-lg mb-1 z-50 shadow-lg max-h-60 overflow-y-auto" v-show="showUnitDropdown" id="unit-select-dropdown">
+                  <div class="dispatch-select-search p-2 border-b border-gray-100">
+                    <input type="text" class="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-blue-400" id="unit-search"
+                      v-model="unitSearchKeyword" placeholder="搜索单位..." @click.stop>
+                  </div>
+                  <div class="dispatch-select-options" id="unit-select-options">
+                    <div v-if="filteredDispatchUnits.length === 0" class="dispatch-select-option px-3 py-1.5 text-xs text-gray-400 disabled">未找到匹配的单位</div>
+                    <div v-else v-for="u in filteredDispatchUnits" :key="u.system_code || u.id"
+                      class="dispatch-select-option px-3 py-1.5 text-xs cursor-pointer hover:bg-blue-50"
+                      :class="{ 'bg-blue-100 text-blue-700 font-medium': form.unit === u.fullName }"
+                      @click="selectDispatchUnit(u)">
+                      <span class="unit-path text-gray-400 text-[10px] block leading-tight">{{ u.unitPath || '' }}</span>
+                      <span>{{ u.fullName }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Focus dropdown -->
+              <div class="dispatch-searchable-select flex-shrink-0 relative" style="width:140px" :class="{ active: showFocusDropdown }" id="focus-select-container">
+                <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="toggleFocusDropdown">
+                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer" id="focus-select-input"
+                    :value="selectedFocus"
+                    placeholder="专项关注..." readonly>
+                  <i class="fas fa-chevron-down text-gray-400 text-xs dispatch-select-arrow"></i>
+                </div>
+                <div class="dispatch-select-dropdown absolute bottom-full left-0 right-0 bg-white border border-gray-200 rounded-lg mb-1 z-50 shadow-lg max-h-60 overflow-y-auto" v-show="showFocusDropdown" id="focus-select-dropdown">
+                  <div class="dispatch-select-search p-2 border-b border-gray-100">
+                    <input type="text" class="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-blue-400" id="focus-search"
+                      v-model="focusSearch" placeholder="搜索专项关注..." @click.stop>
+                  </div>
+                  <div class="dispatch-select-options" id="focus-select-options">
+                    <div v-if="filteredFocusList.length === 0" class="dispatch-select-option px-3 py-1.5 text-xs text-gray-400 disabled">无匹配标签</div>
+                    <div v-else v-for="f in filteredFocusList" :key="f.id"
+                      class="dispatch-select-option px-3 py-1.5 text-xs cursor-pointer hover:bg-blue-50"
+                      :class="{ 'bg-blue-100 text-blue-700 font-medium': selectedFocus === (f['专项关注标题'] || f.tag_name || f.title || '') }"
+                      @click="selectFocus(f)">
+                      <span>{{ f['专项关注标题'] || f.tag_name || f.title }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Remark button -->
+              <button class="wp-remark-btn flex-shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200" id="btn-remark" @click="showRemarkModal">
+                <i class="fas fa-comment-alt"></i>
+                <span>备注</span>
+              </button>
+            </div>
+
+            <!-- dispatch-buttons-row -->
+            <div class="dispatch-bottom-row dispatch-buttons-row flex items-center justify-center gap-4 px-3 py-2.5 bg-gray-50 border-t border-gray-200">
+              <button class="wp-btn-action wp-btn-primary bg-blue-500 text-white px-5 py-1.5 rounded-lg text-xs font-medium shadow-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5" @click="handleDispatch">
+                <i class="fas fa-paper-plane"></i>下发
+              </button>
+              <button class="wp-btn-action wp-btn-success bg-green-500 text-white px-5 py-1.5 rounded-lg text-xs font-medium shadow-sm hover:bg-green-600 flex items-center gap-1.5" @click="handleBySelf">
+                <i class="fas fa-user-check"></i>由我来处理
+              </button>
             </div>
           </div>
         </template>
@@ -312,44 +329,60 @@
     </div>
 
     <!-- Confirm dispatch modal -->
-    <div v-if="showDispatchModal" class="wp-modal-overlay" @click.self="showDispatchModal = false">
-      <div class="wp-modal" style="max-width:500px">
+    <div v-if="showDispatchModal" class="wp-modal-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" @click.self="showDispatchModal = false">
+      <div class="wp-modal bg-white rounded-xl shadow-2xl p-6 w-full max-w-[500px] mx-4">
         <div class="flex items-center gap-2 mb-4">
           <i class="fas fa-paper-plane text-yellow-500"></i>
           <span class="text-lg font-bold text-gray-800">确认下发</span>
         </div>
         <div class="bg-gray-50 rounded-lg p-3 mb-4 text-sm space-y-2">
           <div class="flex items-center gap-2">
-            <span class="text-gray-500 w-20">信件编号：</span>
+            <span class="text-gray-500 w-20 flex-shrink-0">信件编号：</span>
             <span class="font-mono text-blue-600 font-medium">{{ selectedLetter?.['信件编号'] }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-gray-500 w-20">来信人：</span>
+            <span class="text-gray-500 w-20 flex-shrink-0">来信人：</span>
             <span>{{ form.name || '-' }}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="text-gray-500 w-20">下发单位：</span>
+            <span class="text-gray-500 w-20 flex-shrink-0">下发单位：</span>
             <span class="font-medium text-gray-800">{{ form.unit || '（未选择单位）' }}</span>
           </div>
           <div v-if="aiResult?.suggested_unit && form.unit === aiResult.suggested_unit" class="flex items-center gap-2">
-            <span class="text-gray-500 w-20"></span>
+            <span class="text-gray-500 w-20 flex-shrink-0"></span>
             <span class="text-xs text-purple-500"><i class="fas fa-robot mr-1"></i>AI建议单位</span>
           </div>
         </div>
         <div class="flex gap-3 justify-end">
-          <button class="wp-btn wp-btn-secondary" @click="showDispatchModal = false">取消</button>
-          <button class="wp-btn wp-btn-primary" :disabled="submitting" @click="confirmDispatch">
-            <i v-if="submitting" class="fas fa-spinner fa-spin mr-1"></i>
-            <i v-else class="fas fa-paper-plane mr-1"></i>
+          <button class="px-4 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200" @click="showDispatchModal = false">取消</button>
+          <button class="px-4 py-1.5 rounded-lg text-sm bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1" :disabled="submitting" @click="confirmDispatch">
+            <i v-if="submitting" class="fas fa-spinner fa-spin"></i>
+            <i v-else class="fas fa-paper-plane"></i>
             确认下发
           </button>
         </div>
       </div>
     </div>
 
+    <!-- Remark modal -->
+    <div v-if="showRemarkModalWindow" class="wp-modal-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" @click.self="showRemarkModalWindow = false">
+      <div class="wp-modal bg-white rounded-xl shadow-2xl p-6 w-full max-w-[450px] mx-4">
+        <div class="flex items-center gap-2 mb-4">
+          <i class="fas fa-comment-alt text-blue-500"></i>
+          <span class="text-lg font-bold text-gray-800">下发备注</span>
+        </div>
+        <textarea class="w-full text-sm border border-gray-200 rounded-lg p-2.5 resize-none outline-none focus:border-blue-400" rows="4" v-model="form.notes"
+          placeholder="请输入下发备注..."></textarea>
+        <div class="flex gap-3 justify-end mt-4">
+          <button class="px-4 py-1.5 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200" @click="showRemarkModalWindow = false">取消</button>
+          <button class="px-4 py-1.5 rounded-lg text-sm bg-blue-500 text-white hover:bg-blue-600" @click="showRemarkModalWindow = false">保存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Auto dispatch progress modal -->
-    <div v-if="autoDispatchingAll" class="wp-modal-overlay">
-      <div class="wp-modal" style="max-width:480px">
+    <div v-if="autoDispatchingAll" class="wp-modal-overlay fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+      <div class="wp-modal bg-white rounded-xl shadow-2xl p-6 w-full max-w-[480px] mx-4">
         <div class="flex items-center gap-2 mb-4">
           <i class="fas fa-robot text-purple-500 fa-spin"></i>
           <span class="text-lg font-bold text-gray-800">批量自动下发</span>
@@ -378,9 +411,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi } from '@/api/letter'
-import { getDispatchUnits } from '@/api/setting'
+import { getDispatchUnits, getSpecialFocusList } from '@/api/setting'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 // State
@@ -389,6 +422,8 @@ const selectedLetter = ref(null)
 const loadingList = ref(false)
 const submitting = ref(false)
 const showDispatchModal = ref(false)
+const showRemarkModalWindow = ref(false)
+const autoDispatchEnabled = ref(false)
 let pollTimer = null
 
 // AI state
@@ -397,6 +432,24 @@ const aiResult = ref(null)
 const autoDispatchingAll = ref(false)
 const autoDispatchProgress = ref({ current: 0, total: 0 })
 const autoDispatchLogs = ref([])
+
+// AI Chat state
+const aiChatMessages = ref([])
+const aiChatInput = ref('')
+const aiChatProcessing = ref(false)
+const chatMessagesRef = ref(null)
+let chatAbortController = null
+
+// Ref for scrollable detail content area
+const detailScrollRef = ref(null)
+
+// Scroll detail content to top on letter selection
+const scrollDetailToTop = async () => {
+  await nextTick()
+  if (detailScrollRef.value) {
+    detailScrollRef.value.scrollTop = 0
+  }
+}
 
 // Category tree
 const categoryTree = ref([])
@@ -408,14 +461,89 @@ const dispatchUnits = ref([])
 const unitSearchKeyword = ref('')
 const showUnitDropdown = ref(false)
 
-// 过滤后的下发单位列表（根据搜索关键词）
+// Category searchable dropdown (single,三级联动)
+const selectedCategory = ref('')
+const categoryDropdownOpen = ref(false)
+const categorySearch = ref('')
+const categories = ref([]) // 扁平分类列表 [{一级分类, 二级分类, 三级分类}]
+const filteredCategories = computed(() => {
+  if (!categorySearch.value) return categories.value
+  const q = categorySearch.value.toLowerCase()
+  return categories.value.filter(cat => {
+    const path = `${cat['一级分类']} ${cat['二级分类']} ${cat['三级分类']}`.toLowerCase()
+    return path.includes(q)
+  })
+})
+const toggleCategoryDropdown = () => {
+  categoryDropdownOpen.value = !categoryDropdownOpen.value
+  if (categoryDropdownOpen.value) {
+    categorySearch.value = ''
+  }
+}
+const filterCategories = () => {
+  // computed handles filtering
+}
+const selectCategory = (cat) => {
+  selectedCategory.value = `${cat['一级分类']} / ${cat['二级分类']} / ${cat['三级分类']}`
+  form.value.categoryL1 = cat['一级分类']
+  form.value.categoryL2 = cat['二级分类'] || ''
+  form.value.categoryL3 = cat['三级分类'] || ''
+  categoryDropdownOpen.value = false
+}
+
+// 点击外部关闭分类下拉
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    const container = document.getElementById('category-select-container')
+    if (container && !container.contains(e.target)) {
+      categoryDropdownOpen.value = false
+    }
+    const unitContainer = document.getElementById('unit-select-container')
+    if (unitContainer && !unitContainer.contains(e.target)) {
+      showUnitDropdown.value = false
+    }
+    const focusContainer = document.getElementById('focus-select-container')
+    if (focusContainer && !focusContainer.contains(e.target)) {
+      showFocusDropdown.value = false
+    }
+  })
+}
+
+// Focus list (专项关注)
+const focusList = ref([])
+const showFocusDropdown = ref(false)
+const focusSearch = ref('')
+const selectedFocus = ref('')
+
+const filteredFocusList = computed(() => {
+  if (!focusSearch.value) return focusList.value
+  const q = focusSearch.value.toLowerCase()
+  return focusList.value.filter(f => {
+    const name = (f['专项关注标题'] || f.tag_name || f.title || '').toLowerCase()
+    const desc = (f['专项关注描述'] || f.description || '').toLowerCase()
+    return name.includes(q) || desc.includes(q)
+  })
+})
+
+const toggleFocusDropdown = () => {
+  showFocusDropdown.value = !showFocusDropdown.value
+  if (showFocusDropdown.value) {
+    focusSearch.value = ''
+  }
+}
+
+const selectFocus = (item) => {
+  selectedFocus.value = item['专项关注标题'] || item.tag_name || item.title || ''
+  showFocusDropdown.value = false
+}
+
+// Form data
 const filteredDispatchUnits = computed(() => {
   if (!unitSearchKeyword.value.trim()) {
     return dispatchUnits.value
   }
   const keyword = unitSearchKeyword.value.toLowerCase().trim()
   return dispatchUnits.value.filter(u => {
-    // 搜索 fullName 或各个层级
     const fullName = (u.fullName || '').toLowerCase()
     const level1 = (u.level1 || '').toLowerCase()
     const level2 = (u.level2 || '').toLowerCase()
@@ -435,9 +563,7 @@ const form = ref({
 })
 
 // Flow records
-// Normalize flow records from Chinese/English mixed field names to unified format
 const normalizeFlowRecord = (rec) => {
-  // Already in English new format
   if (rec.action) {
     return {
       action: rec.action,
@@ -451,7 +577,6 @@ const normalizeFlowRecord = (rec) => {
       to_status: rec.to_status || rec.status || '',
     }
   }
-  // Chinese old format
   const actionMap = {
     '生成': 'create',
     '自行处理': 'handle_by_self',
@@ -565,6 +690,12 @@ const onCategoryL2Change = () => {
 const selectLetter = async (letter) => {
   selectedLetter.value = letter
   aiResult.value = null
+  // 清空AI聊天
+  aiChatMessages.value = []
+  if (chatAbortController) {
+    chatAbortController.abort()
+    chatAbortController = null
+  }
 
   // Load full detail for flow records
   try {
@@ -588,14 +719,12 @@ const selectLetter = async (letter) => {
     unit: '',
     notes: '请接收单位认真处理用户诉求，及时回复。',
   }
-  // 重置单位搜索状态
+  // 预填分类下拉显示
+  selectedCategory.value = [letter['信件一级分类'], letter['信件二级分类'], letter['信件三级分类']].filter(Boolean).join(' / ')
   unitSearchKeyword.value = ''
   showUnitDropdown.value = false
-  // Sync category cascade
-  onCategoryL1Change()
-  form.value.categoryL2 = letter['信件二级分类'] || ''
-  onCategoryL2Change()
-  form.value.categoryL3 = letter['信件三级分类'] || ''
+  // 选中信件后滚动详情区到顶部
+  scrollDetailToTop()
 }
 
 // AI Analysis
@@ -608,7 +737,6 @@ const runAIAnalysis = async () => {
     if (res.success) {
       aiResult.value = res.data
       selectedLetter.value['_ai_analyzed'] = true
-      // 自动填充AI建议到表单
       applyAISuggestions()
     } else {
       aiResult.value = { _error: res.error || 'AI分析失败' }
@@ -619,19 +747,15 @@ const runAIAnalysis = async () => {
   aiAnalyzing.value = false
 }
 
-// 根据 AI 建议的单位名称匹配完整路径
+// Match unit by name
 const matchUnitByName = (shortName) => {
   if (!shortName) return ''
-  // 1. 精确匹配
   const exact = dispatchUnits.value.find(u => u.fullName === shortName)
   if (exact) return exact.fullName
-  // 2. 以 shortName 结尾（如 "民意智感中心" 匹配 "市局 / 民意智感中心"）
   const suffix = dispatchUnits.value.find(u => u.fullName.endsWith(' / ' + shortName))
   if (suffix) return suffix.fullName
-  // 3. 包含匹配
   const contain = dispatchUnits.value.find(u => u.fullName.includes(shortName))
   if (contain) return contain.fullName
-  // 4. 取最后一个层级匹配
   const last = dispatchUnits.value.find(u => {
     const lastPart = u.fullName.split(' / ').pop()
     return lastPart === shortName
@@ -640,11 +764,11 @@ const matchUnitByName = (shortName) => {
   return shortName
 }
 
-// 选择下发单位
+// Select dispatch unit
 const selectDispatchUnit = (unit) => {
   form.value.unit = unit.fullName
   showUnitDropdown.value = false
-  unitSearchKeyword.value = '' // 清空搜索关键词
+  unitSearchKeyword.value = ''
 }
 
 // Apply AI suggestions to form
@@ -653,6 +777,7 @@ const applyAISuggestions = () => {
   const r = aiResult.value
   if (r.suggested_category_l1) {
     form.value.categoryL1 = r.suggested_category_l1
+    selectedCategory.value = [r.suggested_category_l1, r.suggested_category_l2 || '', r.suggested_category_l3 || ''].filter(Boolean).join(' / ')
     onCategoryL1Change()
     if (r.suggested_category_l2) {
       form.value.categoryL2 = r.suggested_category_l2
@@ -739,6 +864,11 @@ const handleInvalid = async () => {
   } catch {}
 }
 
+// Show remark modal
+const showRemarkModal = () => {
+  showRemarkModalWindow.value = true
+}
+
 // Show dispatch modal
 const handleDispatch = () => {
   if (!form.value.unit) {
@@ -752,7 +882,6 @@ const handleDispatch = () => {
 const confirmDispatch = async () => {
   submitting.value = true
   try {
-    // 下发单位取最后一级（后端用短名称匹配）
     const shortUnit = form.value.unit.split(' / ').pop()
     await dispatch({
       letter_no: selectedLetter.value['信件编号'],
@@ -772,6 +901,140 @@ const confirmDispatch = async () => {
     selectedLetter.value = null
   } catch {}
   submitting.value = false
+}
+
+// ===== AI Chat功能 =====
+
+// 发送AI聊天消息（SSE流式）
+const sendAIChatMessage = async () => {
+  const message = aiChatInput.value.trim()
+  if (!message || aiChatProcessing.value) return
+
+  // 添加到消息列表
+  aiChatMessages.value.push({ role: 'user', content: message })
+  aiChatInput.value = ''
+  aiChatProcessing.value = true
+
+  // 创建AI消息占位
+  const aiMsgIndex = aiChatMessages.value.length
+  aiChatMessages.value.push({ role: 'assistant', content: '' })
+
+  // 滚动到底部
+  await nextTick()
+  scrollChatToBottom()
+
+  try {
+    // 构建消息列表
+    const messages = buildChatMessages(message)
+
+    // 创建AbortController
+    chatAbortController = new AbortController()
+
+    // 使用 SSE fetch 流式请求
+    const response = await fetch('/api/llm/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      signal: chatAbortController.signal,
+      body: JSON.stringify({
+        order: 'chat_stream',
+        args: {
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 2000,
+        }
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error('AI调用失败: ' + response.status)
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let fullContent = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      const chunk = decoder.decode(value, { stream: true })
+      const lines = chunk.split('\n')
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') continue
+
+          try {
+            const parsed = JSON.parse(data)
+            let content = ''
+            if (parsed.chunk) {
+              content = parsed.chunk
+            } else if (parsed.choices?.[0]?.delta?.content) {
+              content = parsed.choices[0].delta.content
+            }
+
+            if (content) {
+              fullContent += content
+              // 更新AI消息内容（过滤掉json命令区域）
+              const displayContent = fullContent.replace(/\^json:.*?\^/g, '')
+              aiChatMessages.value[aiMsgIndex].content = displayContent
+              await nextTick()
+              scrollChatToBottom()
+            }
+          } catch (e) {
+            // 忽略解析错误
+          }
+        }
+      }
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      // 中断不显示错误
+    } else {
+      aiChatMessages.value[aiMsgIndex].content = '抱歉，AI回复失败: ' + (e.message || '未知错误')
+    }
+  } finally {
+    aiChatProcessing.value = false
+    chatAbortController = null
+  }
+}
+
+// 构建AI聊天消息列表
+const buildChatMessages = (userMessage) => {
+  const messages = [
+    {
+      role: 'system',
+      content: '你是一个专业的信访信件处理助手。请基于信件信息，帮助用户分析信件内容、提供处理建议、解答相关问题。回答应当简洁专业。'
+    }
+  ]
+
+  // 添加当前信件信息作为上下文
+  if (selectedLetter.value) {
+    messages.push({
+      role: 'system',
+      content: `当前信件信息:\n- 信件编号: ${selectedLetter.value['信件编号'] || '-'}\n- 群众姓名: ${selectedLetter.value['群众姓名'] || '-'}\n- 诉求内容: ${selectedLetter.value['诉求内容'] || '-'}\n- 信件分类: ${selectedLetter.value['信件一级分类'] || ''}${selectedLetter.value['信件二级分类'] ? ' / ' + selectedLetter.value['信件二级分类'] : ''}${selectedLetter.value['信件三级分类'] ? ' / ' + selectedLetter.value['信件三级分类'] : ''}\n- 来信时间: ${selectedLetter.value['来信时间'] || '-'}\n- 手机号: ${selectedLetter.value['手机号'] || '-'}`
+    })
+  }
+
+  // 添加聊天历史（最后5轮）
+  const historyMessages = aiChatMessages.value.slice(-10, -1)
+  for (const msg of historyMessages) {
+    messages.push({ role: msg.role, content: msg.content })
+  }
+
+  // 添加当前用户消息
+  messages.push({ role: 'user', content: userMessage })
+
+  return messages
+}
+
+// 滚动聊天到底部
+const scrollChatToBottom = () => {
+  if (chatMessagesRef.value) {
+    chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight
+  }
 }
 
 // Load data
@@ -813,6 +1076,23 @@ const loadCategories = async () => {
     const res = await getCategories()
     if (res.success) {
       categoryTree.value = res.data || []
+      // 扁平化分类树，用于搜索下拉框
+      const flat = []
+      const flatten = (nodes, level1 = '', level2 = '') => {
+        for (const n of nodes) {
+          if (n.children && n.children.length > 0) {
+            if (!level1) {
+              flatten(n.children, n.name, '')
+            } else if (!level2) {
+              flatten(n.children, level1, n.name)
+            }
+          } else {
+            flat.push({ '一级分类': level1, '二级分类': level2, '三级分类': n.name })
+          }
+        }
+      }
+      flatten(res.data || [])
+      categories.value = flat
     }
   } catch {}
 }
@@ -837,9 +1117,18 @@ const loadUnits = async () => {
   } catch {}
 }
 
+// Load focus list
+const loadFocusList = async () => {
+  try {
+    const res = await getSpecialFocusList()
+    if (res.success) {
+      focusList.value = res.data || []
+    }
+  } catch {}
+}
+
 onMounted(async () => {
-  await Promise.all([loadData(), loadCategories(), loadUnits()])
-  // 自动选中第一条
+  await Promise.all([loadData(), loadCategories(), loadUnits(), loadFocusList()])
   if (sortedLetters.value.length > 0) {
     selectLetter(sortedLetters.value[0])
   }
@@ -848,5 +1137,67 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (chatAbortController) {
+    chatAbortController.abort()
+    chatAbortController = null
+  }
 })
 </script>
+
+<style scoped>
+/* AI聊天消息样式 */
+.ai-message {
+  display: flex;
+  width: 100%;
+}
+.ai-message-user {
+  justify-content: flex-end;
+}
+.ai-message-ai {
+  justify-content: flex-start;
+}
+
+/* 打字指示器动画 */
+.typing-indicator span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background-color: #9ca3af;
+  border-radius: 50%;
+  animation: typing-bounce 1.4s ease-in-out infinite;
+}
+.typing-indicator span:nth-child(1) { animation-delay: 0s; }
+.typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* detail-top 区域 */
+.detail-top {
+  min-height: 140px;
+  max-height: 200px;
+}
+.detail-info {
+  overflow-y: auto;
+}
+.detail-content textarea {
+  min-height: 70px;
+}
+
+/* AI聊天区域 */
+.detail-middle {
+  min-height: 120px;
+}
+.ai-chat-messages {
+  scrollbar-width: thin;
+}
+
+/* controls-row */
+.controls-row .wp-select {
+  padding: 4px 6px;
+  font-size: 12px;
+}
+</style>

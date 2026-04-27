@@ -47,7 +47,7 @@
         <div class="wp-stat-value">{{ stats.total ?? '-' }}</div>
         <div class="wp-stat-label">信件总量</div>
         <div class="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-          <div class="wp-stat-progress-bar" style="width:75%"></div>
+          <div class="wp-stat-progress-bar" :style="{ width: stats.total > 0 ? '100%' : '0%' }"></div>
         </div>
       </div>
 
@@ -61,7 +61,7 @@
         <div class="wp-stat-value">{{ stats.preprocessing ?? '-' }}</div>
         <div class="wp-stat-label">预处理中</div>
         <div class="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-          <div class="wp-stat-progress-bar" style="background:#eab308;width:60%"></div>
+          <div class="wp-stat-progress-bar" style="background:#eab308" :style="{ width: stats.total > 0 ? (stats.preprocessing / stats.total * 100) + '%' : '0%', background: '#eab308' }"></div>
         </div>
       </div>
 
@@ -70,12 +70,12 @@
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0)">
             <i class="fas fa-spinner text-green-600"></i>
           </div>
-          <span class="text-xs text-gray-400">正在处理</span>
+          <span class="text-xs text-gray-400">处理中</span>
         </div>
         <div class="wp-stat-value">{{ stats.processing ?? '-' }}</div>
-        <div class="wp-stat-label">正在处理</div>
+        <div class="wp-stat-label">处理中</div>
         <div class="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-          <div class="wp-stat-progress-bar" style="background:#22c55e;width:45%"></div>
+          <div class="wp-stat-progress-bar" :style="{ width: stats.total > 0 ? (stats.processing / stats.total * 100) + '%' : '0%', background: '#22c55e' }"></div>
         </div>
       </div>
 
@@ -84,12 +84,12 @@
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe)">
             <i class="fas fa-comments text-purple-600"></i>
           </div>
-          <span class="text-xs text-gray-400">正在反馈</span>
+          <span class="text-xs text-gray-400">待分县局/支队审核</span>
         </div>
         <div class="wp-stat-value">{{ stats.feedbacking ?? '-' }}</div>
-        <div class="wp-stat-label">正在反馈</div>
+        <div class="wp-stat-label">待分县局/支队审核</div>
         <div class="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-          <div class="wp-stat-progress-bar" style="background:#8b5cf6;width:85%"></div>
+          <div class="wp-stat-progress-bar" :style="{ width: stats.total > 0 ? (stats.feedbacking / stats.total * 100) + '%' : '0%', background: '#8b5cf6' }"></div>
         </div>
       </div>
     </div>
@@ -155,12 +155,13 @@ import StatusBadge from '@/components/StatusBadge.vue'
 const userInfo = ref(null)
 const stats = ref({})
 const recentLetters = ref([])
-const currentPeriod = ref('day')
+const currentPeriod = ref('all')
 const currentTime = ref('')
 const currentDate = ref('')
 const pollingTimer = ref(null)
 
 const periods = [
+  { value: 'all', label: '全部' },
   { value: 'day', label: '今日' },
   { value: 'week', label: '本周' },
   { value: 'month', label: '本月' },
@@ -193,11 +194,18 @@ const loadStats = async () => {
     const res = await getStatistics({ period: currentPeriod.value })
     if (res.success) {
       const d = res.data || {}
+      // 后端返回 status_stats: [{status: "预处理", count: N}, ...]
+      const statusStats = d.status_stats || []
+      const total = statusStats.reduce((sum, s) => sum + s.count, 0)
+      const getCount = (statusName) => {
+        const found = statusStats.find(s => s.status === statusName)
+        return found ? found.count : 0
+      }
       stats.value = {
-        total: d['信件总量'] ?? 0,
-        preprocessing: d['预处理'] ?? 0,
-        processing: d['正在处理'] ?? 0,
-        feedbacking: d['正在反馈'] ?? 0,
+        total: total,
+        preprocessing: getCount('预处理'),
+        processing: getCount('处理中'),
+        feedbacking: getCount('待分县局/支队审核'),
       }
     }
   } catch {}
@@ -215,9 +223,25 @@ const loadUserInfo = async () => {
 
 const loadRecentLetters = async () => {
   try {
-    const res = await getList({ limit: 10, page: 1, order_by: '来信时间', order_desc: true })
+    const res = await getList({ page: 1, page_size: 10 })
     if (res.success) {
-      recentLetters.value = res.data?.list || res.data || []
+      const list = res.data?.list || res.data || []
+      // 后端返回英文字段名，映射为中文字段名（与其他视图一致）
+      recentLetters.value = list.map(item => ({
+        '信件编号': item.letter_no,
+        '群众姓名': item.citizen_name,
+        '手机号': item.phone,
+        '身份证号': item.id_card,
+        '诉求内容': item.content,
+        '来信时间': item.received_at,
+        '来源渠道': item.channel || item.source || '-',
+        '信件一级分类': item.category_l1,
+        '信件二级分类': item.category_l2,
+        '信件三级分类': item.category_l3,
+        '信件状态': item.current_status,
+        '当前信件处理单位': item.current_unit,
+        '更新时间': item.updated_at,
+      }))
     }
   } catch {}
 }
