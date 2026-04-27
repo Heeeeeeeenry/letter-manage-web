@@ -233,7 +233,7 @@
               <!-- Category dropdown -->
               <div class="dispatch-searchable-select relative" style="width:240px" :class="{ active: categoryDropdownOpen }" id="category-select-container">
                 <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="toggleCategoryDropdown">
-                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer"
+                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer min-w-0"
                     id="category-select-input"
                     :value="selectedCategory"
                     placeholder="选择信件分类..." readonly>
@@ -259,7 +259,7 @@
               <!-- Unit dropdown -->
               <div class="dispatch-searchable-select relative" style="width:180px" :class="{ active: showUnitDropdown }" id="unit-select-container">
                 <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="showUnitDropdown = !showUnitDropdown">
-                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer" id="unit-select-input"
+                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer min-w-0" id="unit-select-input"
                     :value="form.unit"
                     placeholder="选择下发单位..." readonly>
                   <i class="fas fa-chevron-down text-gray-400 text-xs dispatch-select-arrow"></i>
@@ -285,7 +285,7 @@
               <!-- Focus dropdown -->
               <div class="dispatch-searchable-select flex-shrink-0 relative" style="width:140px" :class="{ active: showFocusDropdown }" id="focus-select-container">
                 <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="toggleFocusDropdown">
-                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer" id="focus-select-input"
+                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer min-w-0" id="focus-select-input"
                     :value="selectedFocus"
                     placeholder="专项关注..." readonly>
                   <i class="fas fa-chevron-down text-gray-400 text-xs dispatch-select-arrow"></i>
