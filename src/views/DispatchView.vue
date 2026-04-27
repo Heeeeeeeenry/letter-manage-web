@@ -440,6 +440,9 @@ const aiChatProcessing = ref(false)
 const chatMessagesRef = ref(null)
 let chatAbortController = null
 
+// Dispatch prompt (loaded from old project)
+const dispatchPrompt = ref('')
+
 // Ref for scrollable detail content area
 const detailScrollRef = ref(null)
 
@@ -725,6 +728,12 @@ const selectLetter = async (letter) => {
   showUnitDropdown.value = false
   // 选中信件后滚动详情区到顶部
   scrollDetailToTop()
+
+  // 自动加载提示词并触发AI分析
+  loadDispatchPrompt()
+  setTimeout(() => {
+    sendAIChatMessage('请帮我分析一下这封信件，给出分类和下发单位建议。')
+  }, 300)
 }
 
 // AI Analysis
@@ -906,13 +915,13 @@ const confirmDispatch = async () => {
 // ===== AI Chat功能 =====
 
 // 发送AI聊天消息（SSE流式）
-const sendAIChatMessage = async () => {
-  const message = aiChatInput.value.trim()
+const sendAIChatMessage = async (manualMessage = null) => {
+  const message = manualMessage || aiChatInput.value.trim()
   if (!message || aiChatProcessing.value) return
 
   // 添加到消息列表
   aiChatMessages.value.push({ role: 'user', content: message })
-  aiChatInput.value = ''
+  if (!manualMessage) aiChatInput.value = ''
   aiChatProcessing.value = true
 
   // 创建AI消息占位
@@ -966,6 +975,13 @@ const sendAIChatMessage = async () => {
           const data = line.slice(6).trim()
           if (data === '[DONE]') continue
 
+          // SSE 错误回显
+          if (data.startsWith('[ERROR]')) {
+            aiChatMessages.value[aiMsgIndex].content = 'AI回复失败: ' + data.slice(7).trim()
+            aiChatProcessing.value = false
+            break
+          }
+
           try {
             const parsed = JSON.parse(data)
             let content = ''
@@ -1003,19 +1019,43 @@ const sendAIChatMessage = async () => {
 
 // 构建AI聊天消息列表
 const buildChatMessages = (userMessage) => {
-  const messages = [
-    {
+  const messages = []
+
+  // 使用老项目的下发提示词（如未加载则用备用提示词）
+  if (dispatchPrompt.value) {
+    messages.push({ role: 'system', content: dispatchPrompt.value })
+  } else {
+    messages.push({
       role: 'system',
       content: '你是一个专业的信访信件处理助手。请基于信件信息，帮助用户分析信件内容、提供处理建议、解答相关问题。回答应当简洁专业。'
-    }
-  ]
+    })
+  }
+
+  // 添加当前时间
+  messages.push({
+    role: 'system',
+    content: `当前时间：${new Date().toLocaleString()}`
+  })
 
   // 添加当前信件信息作为上下文
   if (selectedLetter.value) {
-    messages.push({
-      role: 'system',
-      content: `当前信件信息:\n- 信件编号: ${selectedLetter.value['信件编号'] || '-'}\n- 群众姓名: ${selectedLetter.value['群众姓名'] || '-'}\n- 诉求内容: ${selectedLetter.value['诉求内容'] || '-'}\n- 信件分类: ${selectedLetter.value['信件一级分类'] || ''}${selectedLetter.value['信件二级分类'] ? ' / ' + selectedLetter.value['信件二级分类'] : ''}${selectedLetter.value['信件三级分类'] ? ' / ' + selectedLetter.value['信件三级分类'] : ''}\n- 来信时间: ${selectedLetter.value['来信时间'] || '-'}\n- 手机号: ${selectedLetter.value['手机号'] || '-'}`
-    })
+    let letterPrompt = `当前信件详细信息:\n`
+    letterPrompt += `- 信件编号: ${selectedLetter.value['信件编号'] || '-'}\n`
+    letterPrompt += `- 群众姓名: ${selectedLetter.value['群众姓名'] || '-'}\n`
+    letterPrompt += `- 身份证号: ${selectedLetter.value['身份证号'] || '-'}\n`
+    letterPrompt += `- 手机号: ${selectedLetter.value['手机号'] || '-'}\n`
+    letterPrompt += `- 来信时间: ${selectedLetter.value['来信时间'] || '-'}\n`
+    letterPrompt += `- 诉求内容: ${selectedLetter.value['诉求内容'] || '-'}\n`
+    letterPrompt += `- 当前分类: ${selectedLetter.value['信件一级分类'] || ''} / ${selectedLetter.value['信件二级分类'] || ''} / ${selectedLetter.value['信件三级分类'] || ''}\n`
+
+    const flow = selectedLetter.value._raw?.flow_records || []
+    if (flow.length > 0) {
+      letterPrompt += `\n流转记录:\n`
+      flow.forEach((r, i) => {
+        letterPrompt += `[${i+1}] ${r['操作时间'] || ''} ${r['操作类型'] || ''} (${r['操作人姓名'] || r['操作人警号'] || ''}): ${typeof r['备注'] === 'object' ? JSON.stringify(r['备注']) : (r['备注'] || '')}\n`
+      })
+    }
+    messages.push({ role: 'system', content: letterPrompt })
   }
 
   // 添加聊天历史（最后5轮）
@@ -1035,6 +1075,18 @@ const scrollChatToBottom = () => {
   if (chatMessagesRef.value) {
     chatMessagesRef.value.scrollTop = chatMessagesRef.value.scrollHeight
   }
+}
+
+// 加载老项目的下发提示词
+const loadDispatchPrompt = async () => {
+  if (dispatchPrompt.value) return // 已加载
+  try {
+    const { getPrompt } = await import('@/api/llm')
+    const res = await getPrompt('下发工作提示词')
+    if (res.success && res.data?.content) {
+      dispatchPrompt.value = res.data.content
+    }
+  } catch {}
 }
 
 // Load data

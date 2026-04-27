@@ -4,10 +4,10 @@ export const chat = (messages) =>
   http.post('/api/llm/', { order: 'chat', args: { messages } })
 
 export const getPrompt = (type) =>
-  http.post('/api/llm/', { order: 'get_prompt', args: { type } })
+  http.post('/api/llm/', { order: 'get_prompt', args: { prompt_type: type } })
 
 export const chatStream = async (messages, onChunk) => {
-  const response = await fetch('http://localhost:18081/api/llm/', {
+  const response = await fetch('/api/llm/', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },

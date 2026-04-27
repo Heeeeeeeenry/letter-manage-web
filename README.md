@@ -10,7 +10,7 @@
 - 路由: Vue Router 4 (Hash 模式)
 - HTTP: Axios (withCredentials: true)
 - 图表: ECharts
-- 后端 API: http://localhost:18081
+- 后端 API: http://localhost:8080
 
 ---
 
@@ -66,12 +66,12 @@ letter-manage-web/
 
 - Node.js 18+
 - npm 9+
-- 后端服务已启动（http://localhost:18081）
+- 后端服务已启动（http://localhost:8080）
 
 ### 2. 安装依赖
 
 ```bash
-cd /Users/v_liheng02/work/test_code/for_test/letter-manage-web
+cd /Users/liheng/work/letter-manage-web
 npm install
 ```
 
@@ -124,3 +124,20 @@ npm run preview
 3. 菜单从后端 `/api/config/` 动态加载（权限过滤）
 4. 文件上传使用 `multipart/form-data`（通话录音等）
 5. LLM 流式响应使用 Server-Sent Events（SSE）
+
+---
+
+## 本地域名配置（多平台 Cookie 隔离）
+
+当管理端和市民端同时运行时，请使用本地域名访问以避免 cookie 冲突。
+
+### 访问方式
+
+配置 hosts 后，通过以下地址访问：
+
+| 平台 | 前端地址 | 后端 API 代理 |
+|------|---------|--------------|
+| 管理端（admin） | http://admin.letter.local:5173 | → localhost:8080 |
+| 市民端（citizen） | http://citizen.letter.local:5174 | → localhost:8081 |
+
+> 详细步骤请参见 `letter-manage-backend` 项目的 README 中「本地域名配置」章节。
