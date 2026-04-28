@@ -325,6 +325,31 @@
                 </div>
               </div>
 
+              <!-- Person dropdown -->
+              <div class="dispatch-searchable-select relative" style="width:160px" :class="{ active: showUserDropdown }">
+                <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="showUserDropdown = !showUserDropdown">
+                  <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer min-w-0"
+                    :value="form.handlerUserId ? (unitUsers.find(u=>u.id===form.handlerUserId)?.name || '') : ''"
+                    placeholder="选择处理人..." readonly>
+                  <i class="fas fa-chevron-down text-gray-400 text-xs dispatch-select-arrow"></i>
+                </div>
+                <div class="dispatch-select-dropdown absolute bottom-full left-0 right-0 bg-white border border-gray-200 rounded-lg mb-1 z-50 shadow-lg max-h-48 overflow-y-auto" v-show="showUserDropdown">
+                  <div class="dispatch-select-search p-2 border-b border-gray-100">
+                    <input type="text" class="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-blue-400"
+                      v-model="userSearchKeyword" placeholder="搜索用户..." @click.stop>
+                  </div>
+                  <div class="dispatch-select-options">
+                    <div v-if="filteredUnitUsers.length === 0" class="px-3 py-1.5 text-xs text-gray-400">未找到匹配的用户</div>
+                    <div v-else v-for="u in filteredUnitUsers" :key="u.id"
+                      class="px-3 py-1.5 text-xs cursor-pointer hover:bg-blue-50"
+                      :class="{ 'bg-blue-100 text-blue-700 font-medium': form.handlerUserId === u.id }"
+                      @click="selectUser(u)">
+                      <span>{{ u.name }} <span class="text-gray-400">({{ u.police_number }})</span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Remark button -->
               <button class="wp-remark-btn flex-shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200" id="btn-remark" @click="showRemarkModal">
                 <i class="fas fa-comment-alt"></i>
@@ -431,7 +456,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi } from '@/api/letter'
-import { getDispatchUnits, getSpecialFocusList } from '@/api/setting'
+import { getDispatchUnits, getSpecialFocusList, getUsersInUnit } from '@/api/setting'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 // State
@@ -484,6 +509,9 @@ const currentL3List = ref([])
 const dispatchUnits = ref([])
 const unitSearchKeyword = ref('')
 const showUnitDropdown = ref(false)
+const unitUsers = ref([])
+const showUserDropdown = ref(false)
+const userSearchKeyword = ref('')
 
 // Category searchable dropdown (single,三级联动)
 const selectedCategory = ref('')
@@ -583,7 +611,7 @@ const filteredDispatchUnits = computed(() => {
 const form = ref({
   name: '', phone: '', idcard: '', time: '', content: '',
   categoryL1: '', categoryL2: '', categoryL3: '',
-  unit: '', notes: '请接收单位认真处理用户诉求，及时回复。',
+  unit: '', notes: '请接收单位认真处理用户诉求，及时回复。', unitId: null, handlerUserId: null
 })
 
 // Flow records
@@ -742,7 +770,11 @@ const selectLetter = async (letter) => {
     categoryL3: letter['信件三级分类'] || '',
     unit: '',
     notes: '请接收单位认真处理用户诉求，及时回复。',
+    unitId: null,
+    handlerUserId: null,
   }
+  // 清空已加载的用户列表
+  unitUsers.value = []
   // 预填分类下拉显示
   selectedCategory.value = [letter['信件一级分类'], letter['信件二级分类'], letter['信件三级分类']].filter(Boolean).join(' / ')
   unitSearchKeyword.value = ''
@@ -795,10 +827,47 @@ const matchUnitByName = (shortName) => {
 }
 
 // Select dispatch unit
-const selectDispatchUnit = (unit) => {
+const selectDispatchUnit = async (unit) => {
   form.value.unit = unit.fullName
+  form.value.unitId = unit.id
+  form.value.handlerUserId = null
   showUnitDropdown.value = false
   unitSearchKeyword.value = ''
+  // 加载该单位下的用户
+  unitUsers.value = []
+  showUserDropdown.value = false
+  if (!unit.id) {
+    console.warn('selectDispatchUnit: unit.id is undefined', unit)
+    return
+  }
+  try {
+    const res = await getUsersInUnit(unit.id)
+    console.log('getUsersInUnit response:', res)
+    unitUsers.value = (res && res.success) ? (res.data || []) : []
+    if (unitUsers.value.length > 0) {
+      showUserDropdown.value = true
+    }
+  } catch (e) {
+    console.error('getUsersInUnit error:', e)
+    unitUsers.value = []
+  }
+}
+
+// Filtered users by search keyword
+const filteredUnitUsers = computed(() => {
+  if (!userSearchKeyword.value.trim()) return unitUsers.value
+  const kw = userSearchKeyword.value.toLowerCase()
+  return unitUsers.value.filter(u =>
+    (u.name || '').toLowerCase().includes(kw) ||
+    (u.police_number || '').toLowerCase().includes(kw)
+  )
+})
+
+// Select handler user
+const selectUser = (user) => {
+  form.value.handlerUserId = user.id
+  showUserDropdown.value = false
+  userSearchKeyword.value = ''
 }
 
 // Apply AI suggestions to form
@@ -912,10 +981,10 @@ const handleDispatch = () => {
 const confirmDispatch = async () => {
   submitting.value = true
   try {
-    const shortUnit = form.value.unit.split(' / ').pop()
     await dispatch({
       letter_no: selectedLetter.value['信件编号'],
-      target_unit: shortUnit,
+      target_unit: form.value.unit,
+      unit_id: form.value.unitId,
       remark: form.value.notes,
       citizen_name: form.value.name,
       phone: form.value.phone,
@@ -925,6 +994,7 @@ const confirmDispatch = async () => {
       category_l1: form.value.categoryL1,
       category_l2: form.value.categoryL2,
       category_l3: form.value.categoryL3,
+      handler_user_id: form.value.handlerUserId || undefined,
     })
     showDispatchModal.value = false
     // 重新加载信件列表

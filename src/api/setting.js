@@ -72,3 +72,6 @@ export const deleteDispatchPermission = (args) =>
 
 export const getDispatchUnits = () =>
   http.post('/api/setting/', { order: 'get_dispatch_units', args: {} })
+
+export const getUsersInUnit = (unitId) =>
+  http.post('/api/setting/', { order: 'get_users_in_unit', args: { unit_id: unitId } })
