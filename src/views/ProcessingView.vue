@@ -152,6 +152,9 @@
                         <div class="flow-item-operator">
                           操作人: {{ rec['操作人'] || rec['操作人姓名'] || '-' }} ({{ rec['操作人警号'] || '-' }})
                         </div>
+                        <div class="flow-item-unit" v-if="rec['操作单位']">
+                          操作单位: {{ rec['操作单位'] }}
+                        </div>
                         <div class="flow-item-status" v-if="rec['操作前状态'] || rec['操作后状态']">
                           <span class="status-before">{{ rec['操作前状态'] || '-' }}</span>
                           <span class="status-arrow"><i class="fas fa-arrow-right"></i></span>
@@ -165,6 +168,64 @@
                             </div>
                           </template>
                           <div v-else class="flow-item-remark-item">{{ rec['备注'] }}</div>
+                        </div>
+                        <div class="flow-item-detail-toggle" @click="toggleFlowDetail(idx)">
+                          <i class="fas" :class="expandedFlowIdx === idx ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                          {{ expandedFlowIdx === idx ? '收起详情' : '查看详情' }}
+                        </div>
+                        <div v-if="expandedFlowIdx === idx" class="flow-item-detail">
+                          <div class="flow-detail-grid">
+                            <div class="flow-detail-row">
+                              <span class="flow-detail-label">操作类型</span>
+                              <span class="flow-detail-value">{{ rec['操作类型'] || '-' }}</span>
+                            </div>
+                            <div class="flow-detail-row">
+                              <span class="flow-detail-label">操作人</span>
+                              <span class="flow-detail-value">{{ rec['操作人'] || '-' }}<span v-if="rec['操作人警号']"> ({{ rec['操作人警号'] }})</span></span>
+                            </div>
+                            <div class="flow-detail-row">
+                              <span class="flow-detail-label">操作时间</span>
+                              <span class="flow-detail-value">{{ formatTime(rec['操作时间']) }}</span>
+                            </div>
+                            <div class="flow-detail-row">
+                              <span class="flow-detail-label">操作单位</span>
+                              <span class="flow-detail-value">{{ rec['操作单位'] || '-' }}</span>
+                            </div>
+                            <div class="flow-detail-row" v-if="rec._raw?.['操作前单位'] || rec._raw?.from_unit">
+                              <span class="flow-detail-label">操作前单位</span>
+                              <span class="flow-detail-value">{{ rec._raw['操作前单位'] || rec._raw?.from_unit || '-' }}</span>
+                            </div>
+                            <div class="flow-detail-row" v-if="rec._raw?.['操作后单位'] || rec._raw?.to_unit">
+                              <span class="flow-detail-label">操作后单位</span>
+                              <span class="flow-detail-value">{{ rec._raw['操作后单位'] || rec._raw?.to_unit || '-' }}</span>
+                            </div>
+                            <div class="flow-detail-row" v-if="rec['操作前状态'] || rec['操作后状态']">
+                              <span class="flow-detail-label">状态变更</span>
+                              <span class="flow-detail-value">
+                                <span class="status-before">{{ rec['操作前状态'] || '-' }}</span>
+                                <span class="status-arrow inline-mx-1"><i class="fas fa-arrow-right"></i></span>
+                                <span class="status-after">{{ rec['操作后状态'] || '-' }}</span>
+                              </span>
+                            </div>
+                            <div class="flow-detail-row" v-if="rec['目标单位']">
+                              <span class="flow-detail-label">目标单位</span>
+                              <span class="flow-detail-value">{{ rec['目标单位'] }}</span>
+                            </div>
+                            <div class="flow-detail-row flow-detail-row-full" v-if="rec['备注']">
+                              <span class="flow-detail-label">备注</span>
+                              <span class="flow-detail-value" v-if="typeof rec['备注'] === 'object'">
+                                <div v-for="(val, key) in rec['备注']" :key="key" class="flow-detail-remark-item">
+                                  <span class="remark-key">{{ key }}:</span> {{ Array.isArray(val) ? val.join(' / ') : val }}
+                                </div>
+                              </span>
+                              <span class="flow-detail-value" v-else>{{ rec['备注'] }}</span>
+                            </div>
+                          </div>
+                          <div v-if="rec._raw" class="flow-detail-raw-toggle" @click.stop="showRawJson[idx] = !showRawJson[idx]">
+                            <i class="fas" :class="showRawJson[idx] ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            {{ showRawJson[idx] ? '收起原始数据' : '查看原始数据' }}
+                          </div>
+                          <pre v-if="rec._raw && showRawJson[idx]" class="flow-detail-raw">{{ JSON.stringify(rec._raw, null, 2) }}</pre>
                         </div>
                       </div>
                     </div>
@@ -297,7 +358,7 @@
                               </div>
                               <div class="text-xs text-gray-600 mt-1">
                                 <span v-if="processingExpired" class="font-medium">处理已超时，请尽快完成处理！</span>
-                                <span v-else>请在30分钟内完成群众联系和处理反馈</span>
+                                <span v-else>请在4个工作日内完成群众联系和处理反馈（节假日顺延）</span>
                               </div>
                             </div>
                             <textarea class="wp-input text-sm resize-none" rows="5" v-model="handleResult" placeholder="请填写信件处理结果..." maxlength="1000"></textarea>
@@ -499,6 +560,14 @@ const tabs = [
 
 const flowRecords = computed(() => selectedLetter.value?.['流转记录'] || [])
 
+// 展开/收起流转记录详情
+const expandedFlowIdx = ref(-1)
+const showRawJson = ref({})
+const toggleFlowDetail = (idx) => {
+  expandedFlowIdx.value = expandedFlowIdx.value === idx ? -1 : idx
+  showRawJson.value = {}
+}
+
 // ──── Detail loading ────
 const formatFileSize = (bytes) => {
   const k = 1024
@@ -552,7 +621,7 @@ const selectLetter = async (letter) => {
 }
 
 const startProcessingCountdown = () => {
-  // 优先使用后端返回的 deadline_at 字段（由 Dispatch 方法设置，退回时清除）
+  // 使用后端返回的 deadline_at 字段（由 Dispatch 方法设置 4 个工作日截止时间）
   const deadlineAt = selectedLetter.value?._raw?.deadline_at
   if (deadlineAt) {
     const deadlineMs = new Date(deadlineAt).getTime()
@@ -578,9 +647,7 @@ const startProcessingCountdown = () => {
           }
           return
         }
-        const minutes = Math.floor(remain / 60000)
-        const seconds = Math.floor((remain % 60000) / 1000)
-        countdownTimerStr.value = `${minutes}:${seconds.toString().padStart(2, '0')}`
+        countdownTimerStr.value = formatRemainingTime(remain)
       }
       updateFromDeadline()
       if (processingTimer) clearInterval(processingTimer)
@@ -589,7 +656,7 @@ const startProcessingCountdown = () => {
     }
   }
 
-  // 后备方案：从流转记录中找最新一次 dispatch 操作时间作为计时起点
+  // 后备方案：从流转记录中找最新一次 dispatch 操作时间，加4个工作日作为截止时间
   const records = selectedLetter.value?.['流转记录'] || []
   let startTime = null
   for (let i = records.length - 1; i >= 0; i--) {
@@ -616,7 +683,8 @@ const startProcessingCountdown = () => {
   }
   
   if (startTime) {
-    const deadlineMs = new Date(startTime).getTime() + 30 * 60 * 1000
+    // 简单的4天估算（前端无法精确计算工作日，依赖后端 deadline_at）
+    const deadlineMs = new Date(startTime).getTime() + 4 * 24 * 60 * 60 * 1000
     const remaining = deadlineMs - Date.now()
     if (remaining <= 0) {
       countdownTimerStr.value = '已超时'
@@ -636,9 +704,7 @@ const startProcessingCountdown = () => {
         }
         return
       }
-      const minutes = Math.floor(remain / 60000)
-      const seconds = Math.floor((remain % 60000) / 1000)
-      countdownTimerStr.value = `${minutes}:${seconds.toString().padStart(2, '0')}`
+      countdownTimerStr.value = formatRemainingTime(remain)
     }
     updateFromDeadline()
     if (processingTimer) clearInterval(processingTimer)
@@ -653,13 +719,29 @@ const startProcessingCountdown = () => {
   processingTimer = setInterval(updateCountdownDisplay, 1000)
 }
 
+// 格式化剩余时间为可读格式
+const formatRemainingTime = (ms) => {
+  if (ms <= 0) return '已超时'
+  const totalSeconds = Math.floor(ms / 1000)
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  if (days > 0) {
+    return `${days}天${hours}小时${minutes}分钟`
+  } else if (hours > 0) {
+    return `${hours}小时${minutes}分钟`
+  } else {
+    return `${minutes}分钟`
+  }
+}
+
 const updateCountdownDisplay = () => {
   if (!processingStartTime.value) {
     countdownTimerStr.value = ''
     return
   }
   const elapsed = Date.now() - processingStartTime.value
-  const remaining = 30 * 60 * 1000 - elapsed
+  const remaining = 4 * 24 * 60 * 60 * 1000 - elapsed
   if (remaining <= 0) {
     countdownTimerStr.value = '已超时'
     processingExpired.value = true
@@ -669,9 +751,7 @@ const updateCountdownDisplay = () => {
     }
     return
   }
-  const minutes = Math.floor(remaining / 60000)
-  const seconds = Math.floor((remaining % 60000) / 1000)
-  countdownTimerStr.value = `${minutes}:${seconds.toString().padStart(2, '0')}`
+  countdownTimerStr.value = formatRemainingTime(remaining)
 }
 
 const loadFlowRecords = async (letterNo) => {
@@ -684,6 +764,14 @@ const loadFlowRecords = async (letterNo) => {
       selectedLetter.value['流转记录'] = normalizeFlowRecords(records)
     } else {
       selectedLetter.value['流转记录'] = []
+    }
+    // 从详情接口提取 deadline_at，用于倒计时计算
+    if (res?.data?.letter?.deadline_at) {
+      if (!selectedLetter.value._raw) {
+        selectedLetter.value._raw = {}
+      }
+      selectedLetter.value._raw.deadline_at = res.data.letter.deadline_at
+      selectedLetter.value['截止时间'] = res.data.letter.deadline_at
     }
   } catch (e) {
     console.error('Failed to fetch flow records:', e)
@@ -766,33 +854,39 @@ const handleSubmit = async () => {
   }
   submitting.value = true
   try {
-    // Upload recordings first if any
+    // Upload recordings first if any — one file at a time
     if (recordings.value.length > 0) {
-      const formData = new FormData()
-      formData.append('letter_no', selectedLetter.value['信件编号'])
-      recordings.value.forEach(f => formData.append('files', f))
-      await fetch('/api/letter/', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      })
+      for (const file of recordings.value) {
+        const formData = new FormData()
+        formData.append('letter_no', selectedLetter.value['信件编号'])
+        formData.append('file', file)
+        formData.append('file_type', 'call_recordings')
+        await fetch('/api/letter/', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        })
+      }
     }
     await submitProcessing({
       letter_no: selectedLetter.value['信件编号'],
       remark: handleResult.value,
+      contact_feedback: contactFeedback.value,
+      category: selectedCategory.value,
     })
-    // 重新加载信件列表和流转记录
-    const prevLetterNo = selectedLetter.value['信件编号']
+    // 重新加载信件列表
     selectedLetter.value = null
     await loadData()
-    // 选中刚才处理的信件，刷新流转记录显示
-    if (prevLetterNo && letters.value[prevLetterNo]) {
-      await selectLetter(letters.value[prevLetterNo])
-    }
+    // 不清除已有状态，但不再自动选中已提交的信件
     handleStep.value = 1
     contactFeedback.value = ''
     handleResult.value = ''
     recordings.value = []
+    // 如果列表还有未处理的，自动选中第一封
+    const remaining = Object.values(letters.value)
+    if (remaining.length > 0) {
+      await selectLetter(remaining[0])
+    }
   } catch {}
   submitting.value = false
 }
@@ -979,7 +1073,7 @@ const loadData = async () => {
           '来信时间': letter.received_at,
           '当前信件处理单位': letter.current_unit,
           '紧急程度': letter.urgency_level,
-          '截止时间': letter.deadline,
+          '截止时间': letter.deadline_at,
           '来源': letter.source || letter.channel || '局长信箱',
           '更新时间': letter.updated_at,
           // Keep original object for debugging
@@ -1226,5 +1320,101 @@ onUnmounted(() => {
 }
 .step-actions .wp-btn-success:hover {
   background: #059669;
+}
+
+/* 流转记录详情展开/收起 */
+.flow-item-detail-toggle {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #e5e7eb;
+  font-size: 12px;
+  color: #3b82f6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.flow-item-detail-toggle:hover {
+  color: #2563eb;
+}
+.flow-item-detail {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+.flow-detail-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 12px;
+}
+.flow-detail-row {
+  display: contents;
+}
+.flow-detail-row-full {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #e5e7eb;
+}
+.flow-detail-label {
+  color: #6b7280;
+  white-space: nowrap;
+  padding: 3px 0;
+}
+.flow-detail-value {
+  color: #374151;
+  padding: 3px 0;
+}
+.flow-detail-row-full .flow-detail-label {
+  white-space: normal;
+}
+.flow-detail-remark-item {
+  margin-bottom: 2px;
+}
+.flow-detail-remark-item .remark-key {
+  font-weight: 500;
+  color: #6b7280;
+}
+.flow-detail-raw-toggle {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #e5e7eb;
+  font-size: 11px;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.flow-detail-raw-toggle:hover {
+  color: #6b7280;
+}
+.flow-detail-raw {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #6b7280;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f3f4f6;
+  padding: 8px;
+  border-radius: 4px;
+}
+.inline-mx-1 {
+  margin: 0 4px;
+}
+.flow-item-unit {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
 }
 </style>

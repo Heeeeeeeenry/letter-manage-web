@@ -148,7 +148,7 @@ const handleApprove = async () => {
   if (!selectedLetter.value) return
   submitting.value = true
   try {
-    await auditApprove({ letter_no: selectedLetter.value['信件编号'], comment: auditComment.value })
+    await auditApprove({ letter_no: selectedLetter.value['信件编号'], remark: auditComment.value })
     await loadData()
     selectedLetter.value = null
   } catch {}
@@ -160,7 +160,7 @@ const handleReject = async () => {
   if (!auditComment.value.trim()) { alert('请填写不通过原因'); return }
   submitting.value = true
   try {
-    await auditReject({ letter_no: selectedLetter.value['信件编号'], comment: auditComment.value })
+    await auditReject({ letter_no: selectedLetter.value['信件编号'], remark: auditComment.value })
     await loadData()
     selectedLetter.value = null
   } catch {}

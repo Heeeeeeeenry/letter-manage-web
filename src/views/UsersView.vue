@@ -43,9 +43,11 @@
                 <span class="wp-badge" :class="roleBadge(user['权限级别'] || user.role)">
                   {{ user['权限级别'] || user.role }}
                 </span>
+                <span v-if="user.is_admin" class="text-xs text-purple-500 ml-1">(管理员)</span>
               </td>
               <td>
-                <span class="wp-badge" :class="user['状态'] === '已激活' || user.is_active === true ? 'wp-badge-green' : 'wp-badge-red'">
+                <span class="wp-badge cursor-pointer" :class="user['状态'] === '已激活' || user.is_active === true ? 'wp-badge-green' : 'wp-badge-red'"
+                  @click="confirmToggleStatus(user)">
                   {{ user['状态'] || (user.is_active === true ? '已激活' : '已禁用') }}
                 </span>
               </td>
@@ -140,11 +142,45 @@
               <option value="OFFICER">基层单位 (OFFICER)</option>
             </select>
           </div>
+          <div v-if="editingUser || form.role">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="form.isAdmin" class="w-3.5 h-3.5 accent-purple-500" />
+              <span class="text-sm text-gray-700">管理员权限</span>
+              <span class="text-xs text-gray-400">（勾选后可管理同级用户）</span>
+            </label>
+          </div>
         </div>
         <div class="flex gap-3 justify-end mt-6">
           <button class="wp-btn wp-btn-secondary" @click="closeModal">取消</button>
           <button class="wp-btn wp-btn-primary" :disabled="submitting" @click="handleSave">
             <i v-if="submitting" class="fas fa-spinner fa-spin"></i>保存
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disable user confirm modal -->
+    <div v-if="showDisableModal" class="wp-modal-overlay" @click.self="showDisableModal = false">
+      <div class="wp-modal" style="max-width:400px">
+        <div class="flex items-center gap-2 mb-4">
+          <i class="fas fa-exclamation-triangle" :class="disableTargetUser?.is_active === false ? 'text-green-500' : 'text-red-500'"></i>
+          <span class="text-lg font-bold text-gray-800">{{ disableTargetUser?.is_active === false ? '启用用户' : '禁用用户' }}</span>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">
+          <template v-if="disableTargetUser?.is_active === false">
+            确认启用用户 <strong>{{ disableTargetUser?.姓名 || disableTargetUser?.name || '' }}</strong>？
+            <br>启用后该用户可以正常登录此平台。
+          </template>
+          <template v-else>
+            确认禁用用户 <strong>{{ disableTargetUser?.姓名 || disableTargetUser?.name || '' }}</strong>？
+            <br>禁用后该用户将无法登录此平台。
+          </template>
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button class="wp-btn wp-btn-secondary" @click="showDisableModal = false">取消</button>
+          <button class="wp-btn" :class="disableTargetUser?.is_active === false ? 'wp-btn-success' : 'wp-btn-danger'" :disabled="submittingDisable" @click="handleDisableUser">
+            <i v-if="submittingDisable" class="fas fa-spinner fa-spin mr-1"></i>
+            {{ disableTargetUser?.is_active === false ? '确认启用' : '确认禁用' }}
           </button>
         </div>
       </div>
@@ -189,7 +225,7 @@ const filteredUnits = computed(() => {
   })
 })
 
-const form = ref({ name: '', policeNumber: '', password: '', org: '', role: 'OFFICER' })
+const form = ref({ name: '', policeNumber: '', password: '', org: '', role: 'OFFICER', isAdmin: false })
 
 let debounceTimer = null
 
@@ -262,7 +298,7 @@ const loadUsers = async () => {
 
 const openCreateModal = () => {
   editingUser.value = null
-  form.value = { name: '', policeNumber: '', password: '', org: '', role: 'OFFICER' }
+  form.value = { name: '', policeNumber: '', password: '', org: '', role: 'OFFICER', isAdmin: false }
   // 重置单位搜索状态
   unitSearchKeyword.value = ''
   showUnitDropdown.value = false
@@ -297,6 +333,7 @@ const openEditModal = (user) => {
     password: '',
     org: matchedFullName,
     role: roleValue,
+    isAdmin: user.is_admin === true
   }
   // 重置单位搜索状态
   unitSearchKeyword.value = ''
@@ -315,14 +352,12 @@ const closeModal = () => {
 const handleSave = async () => {
   submitting.value = true
   try {
-    // 从 fullName 中提取末级单位名（如 "北京市/海淀分局/中关村派出所" → "中关村派出所"）
-    const parts = form.value.org.split(' / ')
-    const unitName = parts[parts.length - 1]
     const data = { 
       name: form.value.name, 
       police_number: form.value.policeNumber, 
-      unit_name: unitName, 
-      permission_level: form.value.role 
+      unit_name: form.value.org, 
+      permission_level: form.value.role,
+      is_admin: form.value.isAdmin || false
     }
     if (editingUser.value) {
       await updateUser({ ...data, id: editingUser.value.id || editingUser.value['警号'] })
@@ -331,7 +366,9 @@ const handleSave = async () => {
     }
     closeModal()
     loadUsers()
-  } catch {}
+  } catch (e) {
+    alert(e.message || '操作失败')
+  }
   submitting.value = false
 }
 
@@ -350,6 +387,31 @@ const handleDelete = async (user) => {
     await deleteUser({ id: user.id || user['警号'] })
     loadUsers()
   } catch {}
+}
+
+// Disable user state
+const showDisableModal = ref(false)
+const submittingDisable = ref(false)
+const disableTargetUser = ref(null)
+
+const confirmToggleStatus = (user) => {
+  disableTargetUser.value = user
+  showDisableModal.value = true
+}
+
+const handleDisableUser = async () => {
+  if (!disableTargetUser.value) return
+  submittingDisable.value = true
+  const isCurrentlyActive = disableTargetUser.value.is_active !== false && disableTargetUser.value['状态'] !== '已禁用'
+  try {
+    await updateUser({ id: disableTargetUser.value.id || disableTargetUser.value['警号'], is_active: !isCurrentlyActive })
+    showDisableModal.value = false
+    disableTargetUser.value = null
+    loadUsers()
+  } catch (e) {
+    alert(e.message || '操作失败')
+  }
+  submittingDisable.value = false
 }
 
 onMounted(async () => { 

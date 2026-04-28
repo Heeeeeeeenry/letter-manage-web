@@ -95,7 +95,7 @@
     </div>
 
     <!-- Recent letters -->
-    <div class="wp-panel flex-1">
+    <div class="wp-panel flex-1 flex flex-col min-h-0">
       <div class="wp-panel-header">
         <div class="flex items-center gap-3">
           <div class="wp-panel-icon">
@@ -110,7 +110,7 @@
           <i class="fas fa-arrow-right"></i>查看全部
         </button>
       </div>
-      <div class="overflow-x-auto">
+      <div class="flex-1 overflow-y-auto min-h-0">
         <table class="wp-table">
           <thead>
             <tr>
