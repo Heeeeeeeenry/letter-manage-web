@@ -99,13 +99,15 @@
                 <td>{{ unit.level1 }}</td>
                 <td>{{ unit.level2 }}</td>
                 <td>{{ unit.level3 }}</td>
-                <td>
-                  <button class="wp-btn wp-btn-secondary text-xs py-1 px-2 mr-2" @click="editUnit(unit)">
-                    <i class="fas fa-edit"></i>编辑
-                  </button>
-                  <button class="wp-btn wp-btn-danger text-xs py-1 px-2" @click="deleteUnit(unit)">
-                    <i class="fas fa-trash"></i>删除
-                  </button>
+                <td class="w-1/4">
+                  <div class="flex items-center gap-2">
+                    <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="editUnit(unit)">
+                      <i class="fas fa-edit mr-1"></i>编辑
+                    </button>
+                    <button class="wp-btn wp-btn-danger text-xs py-1.5 px-3" @click="deleteUnit(unit)">
+                      <i class="fas fa-trash mr-1"></i>删除
+                    </button>
+                  </div>
                 </td>
               </tr>
               <tr v-if="orgs.length === 0">
@@ -212,7 +214,7 @@
                 <th class="w-12">ID</th>
                 <th>单位名称</th>
                 <th>可下发范围</th>
-                <th class="w-32">操作</th>
+                <th class="w-36">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -226,13 +228,15 @@
                     </span>
                   </div>
                 </td>
-                <td class="text-center">
-                  <button class="wp-btn wp-btn-secondary text-xs py-0.5 px-2 mr-1" @click="openEditDispatchModal(perm)">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button class="wp-btn wp-btn-danger text-xs py-0.5 px-2" @click="handleDeleteDispatch(perm)">
-                    <i class="fas fa-trash"></i>
-                  </button>
+                <td>
+                  <div class="flex items-center gap-2 justify-center">
+                    <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="openEditDispatchModal(perm)">
+                      <i class="fas fa-edit mr-1"></i>编辑
+                    </button>
+                    <button class="wp-btn wp-btn-danger text-xs py-1.5 px-3" @click="handleDeleteDispatch(perm)">
+                      <i class="fas fa-trash mr-1"></i>删除
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>

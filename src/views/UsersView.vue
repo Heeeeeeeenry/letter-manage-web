@@ -28,22 +28,27 @@
               <th>警号</th>
               <th>所属单位</th>
               <th>权限级别</th>
+              <th>手机号</th>
               <th>状态</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="loading"><td colspan="6" class="text-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>加载中...</td></tr>
-            <tr v-else-if="users.length === 0"><td colspan="6" class="text-center py-12 text-gray-400"><i class="fas fa-users text-4xl mb-2 block"></i>暂无用户</td></tr>
+            <tr v-if="loading"><td colspan="7" class="text-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i>加载中...</td></tr>
+            <tr v-else-if="users.length === 0"><td colspan="7" class="text-center py-12 text-gray-400"><i class="fas fa-users text-4xl mb-2 block"></i>暂无用户</td></tr>
             <tr v-for="user in users" :key="user.id || user['警号']">
               <td class="font-medium">{{ user['姓名'] || user.name }}</td>
               <td class="font-mono text-sm">{{ user['警号'] || user.police_number }}</td>
-              <td>{{ getUnitFullName(user['所属单位'] || user.org || user.unit_name) }}</td>
+              <td>{{ getUnitFullName(user.unit_id) }}</td>
               <td>
                 <span class="wp-badge" :class="roleBadge(user['权限级别'] || user.role)">
                   {{ user['权限级别'] || user.role }}
                 </span>
                 <span v-if="user.is_admin" class="text-xs text-purple-500 ml-1">(管理员)</span>
+              </td>
+              <td>
+                <span v-if="showPhone(user)" class="font-mono text-sm">{{ user.phone || '-' }}</span>
+                <span v-else class="text-gray-300 text-sm">---</span>
               </td>
               <td>
                 <span class="wp-badge cursor-pointer" :class="user['状态'] === '已激活' || user.is_active === true ? 'wp-badge-green' : 'wp-badge-red'"
@@ -53,13 +58,13 @@
               </td>
               <td>
                 <div class="flex gap-2">
-                  <button class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="openEditModal(user)">
+                  <button v-if="canEdit(user)" class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="openEditModal(user)">
                     <i class="fas fa-edit"></i>编辑
                   </button>
-                  <button class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="handleResetPwd(user)">
+                  <button v-if="canEdit(user)" class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="handleResetPwd(user)">
                     <i class="fas fa-key"></i>重置密码
                   </button>
-                  <button class="wp-btn wp-btn-danger text-xs py-1 px-2" @click="handleDelete(user)">
+                  <button v-if="canEdit(user)" class="wp-btn wp-btn-danger text-xs py-1 px-2" @click="handleDelete(user)">
                     <i class="fas fa-trash"></i>删除
                   </button>
                 </div>
@@ -89,6 +94,14 @@
           <div><label class="text-sm font-medium text-gray-700 mb-1 block">姓名</label><input class="wp-input" v-model="form.name" placeholder="请输入姓名" /></div>
           <div><label class="text-sm font-medium text-gray-700 mb-1 block">警号</label><input class="wp-input" v-model="form.policeNumber" placeholder="请输入警号" :readonly="!!editingUser" /></div>
           <div v-if="!editingUser"><label class="text-sm font-medium text-gray-700 mb-1 block">密码</label><input type="password" class="wp-input" v-model="form.password" placeholder="请输入初始密码" /></div>
+          <div><label class="text-sm font-medium text-gray-700 mb-1 block">手机号</label>
+            <input class="wp-input" v-model="form.phone" placeholder="请输入手机号"
+              :readonly="editingUser && form.phoneReadonly"
+              :class="{ 'opacity-60 cursor-not-allowed': editingUser && form.phoneReadonly }" />
+            <span v-if="editingUser && form.phoneReadonly" class="text-xs text-amber-500 mt-0.5 block">
+              <i class="fas fa-info-circle mr-1"></i>同级用户手机号只读，不可编辑
+            </span>
+          </div>
           <div><label class="text-sm font-medium text-gray-700 mb-1 block">所属单位</label>
             <div class="relative">
               <!-- 显示选中的单位 -->
@@ -191,6 +204,42 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { getUserList, createUser, updateUser, deleteUser, resetPassword, getOrgList } from '@/api/setting'
+import { getMenu } from '@/api/config'
+
+const currentUser = ref(null)
+
+const levelRank = (level) => {
+  if (level === 'CITY') return 3
+  if (level === 'DISTRICT') return 2
+  if (level === 'OFFICER') return 1
+  return 0
+}
+
+const canEdit = (targetUser) => {
+  if (!currentUser.value) return false
+  const viewerLevel = levelRank(currentUser.value.permission_level)
+  const targetLevel = levelRank(targetUser.role || targetUser.permission_level || '')
+  
+  // 不能操作更高级别的用户
+  if (viewerLevel < targetLevel) return false
+  // 非admin不能操作同级
+  if (!currentUser.value.is_admin && viewerLevel === targetLevel) return false
+  // admin不能操作同级admin
+  if (currentUser.value.is_admin && targetUser.is_admin && viewerLevel === targetLevel) return false
+  
+  return true
+}
+
+const showPhone = (targetUser) => {
+  if (!currentUser.value) return false
+  const viewerLevel = levelRank(currentUser.value.permission_level)
+  const targetLevel = levelRank(targetUser.role || targetUser.permission_level || '')
+  
+  // 不同级（上级看下级）：可见
+  if (viewerLevel !== targetLevel) return true
+  // 同级：仅admin可见
+  return currentUser.value.is_admin
+}
 
 const users = ref([])
 const totalCount = ref(0)
@@ -225,7 +274,7 @@ const filteredUnits = computed(() => {
   })
 })
 
-const form = ref({ name: '', policeNumber: '', password: '', org: '', role: 'OFFICER', isAdmin: false })
+const form = ref({ name: '', policeNumber: '', password: '', phone: '', org: '', role: 'OFFICER', isAdmin: false, phoneReadonly: false })
 
 let debounceTimer = null
 
@@ -273,14 +322,11 @@ const selectUnit = (unit) => {
 
 
 
-// 根据单位名获取完整层级路径
-const getUnitFullName = (unitName) => {
-  if (!unitName) return ''
-  // 在 units 列表中查找匹配的单位
-  const unit = units.value.find(u => 
-    u.level3 === unitName || u.level2 === unitName || u.level1 === unitName
-  )
-  return unit ? unit.fullName : unitName
+// 根据 unit_id 获取单位完整层级名
+const getUnitFullName = (unitId) => {
+  if (unitId == null) return ''
+  const unit = units.value.find(u => u.id === unitId)
+  return unit ? unit.fullName : ''
 }
 
 const loadUsers = async () => {
@@ -298,7 +344,7 @@ const loadUsers = async () => {
 
 const openCreateModal = () => {
   editingUser.value = null
-  form.value = { name: '', policeNumber: '', password: '', org: '', role: 'OFFICER', isAdmin: false }
+  form.value = { name: '', policeNumber: '', password: '', phone: '', org: '', role: 'OFFICER', isAdmin: false, phoneReadonly: false }
   // 重置单位搜索状态
   unitSearchKeyword.value = ''
   showUnitDropdown.value = false
@@ -307,13 +353,10 @@ const openCreateModal = () => {
 
 const openEditModal = (user) => {
   editingUser.value = user
-  const userUnit = user['所属单位'] || user.unit_name || user.org || ''
-  // 在 units 列表中查找匹配的单位（按 level3/level2/level1 匹配）
   let matchedFullName = ''
-  if (userUnit) {
-    const match = units.value.find(u =>
-      u.level3 === userUnit || u.level2 === userUnit || u.level1 === userUnit
-    )
+  // 按 unit_id 匹配
+  if (user.unit_id != null) {
+    const match = units.value.find(u => u.id === user.unit_id)
     if (match) matchedFullName = match.fullName
   }
   // 权限级别映射：中文转英文
@@ -331,9 +374,11 @@ const openEditModal = (user) => {
     name: user['姓名'] || user.name || '',
     policeNumber: user['警号'] || user.police_number || '',
     password: '',
+    phone: user.phone || '',
     org: matchedFullName,
     role: roleValue,
-    isAdmin: user.is_admin === true
+    isAdmin: user.is_admin === true,
+    phoneReadonly: user.phone_editable === false
   }
   // 重置单位搜索状态
   unitSearchKeyword.value = ''
@@ -352,10 +397,18 @@ const closeModal = () => {
 const handleSave = async () => {
   submitting.value = true
   try {
+    // 通过 fullName 找到匹配的 unit 对象，提取 unit_id
+    let unitId = null
+    if (form.value.org) {
+      const unit = units.value.find(u => u.fullName === form.value.org)
+      if (unit) unitId = unit.id
+    }
     const data = { 
       name: form.value.name, 
       police_number: form.value.policeNumber, 
+      phone: form.value.phone,
       unit_name: form.value.org, 
+      unit_id: unitId,
       permission_level: form.value.role,
       is_admin: form.value.isAdmin || false
     }
@@ -415,6 +468,12 @@ const handleDisableUser = async () => {
 }
 
 onMounted(async () => { 
+  try {
+    const res = await getMenu()
+    if (res.success) {
+      currentUser.value = res.data?.user || null
+    }
+  } catch {}
   await loadUnits()
   loadUsers() 
 })
