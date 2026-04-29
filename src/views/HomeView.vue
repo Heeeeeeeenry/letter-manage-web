@@ -21,17 +21,31 @@
       </div>
     </div>
 
-    <!-- Time filter -->
-    <div class="flex items-center gap-3">
-      <span class="text-sm text-gray-500">统计周期：</span>
-      <div class="flex gap-2">
+    <!-- View mode toggle + Time filter -->
+    <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-gray-500">统计周期：</span>
+        <div class="flex gap-2">
+          <button
+            v-for="p in periods"
+            :key="p.value"
+            class="wp-filter-chip"
+            :class="{ active: currentPeriod === p.value }"
+            @click="changePeriod(p.value)"
+          >{{ p.label }}</button>
+        </div>
+      </div>
+      <div class="flex bg-gray-100 rounded-xl p-0.5 gap-0.5 shadow-sm ml-auto" v-if="isDistrict() || isCity()">
         <button
-          v-for="p in periods"
-          :key="p.value"
-          class="wp-filter-chip"
-          :class="{ active: currentPeriod === p.value }"
-          @click="changePeriod(p.value)"
-        >{{ p.label }}</button>
+          class="px-4 py-2 text-sm rounded-lg transition-all duration-150 font-medium"
+          :class="viewMode === 'personal' ? 'bg-white text-blue-600 shadow-md font-semibold' : 'text-gray-500 hover:text-gray-700'"
+          @click="viewMode = 'personal'; refreshData()"
+        >个人</button>
+        <button
+          class="px-4 py-2 text-sm rounded-lg transition-all duration-150 font-medium"
+          :class="viewMode === 'unit' ? 'bg-white text-blue-600 shadow-md font-semibold' : 'text-gray-500 hover:text-gray-700'"
+          @click="viewMode = 'unit'; refreshData()"
+        >单位</button>
       </div>
     </div>
 
@@ -150,7 +164,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { getList, getStatistics } from '@/api/letter'
+import { useUser } from '@/stores/user'
 import StatusBadge from '@/components/StatusBadge.vue'
+
+const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
 
 const userInfo = ref(null)
 const stats = ref({})
@@ -159,6 +176,7 @@ const currentPeriod = ref('all')
 const currentTime = ref('')
 const currentDate = ref('')
 const pollingTimer = ref(null)
+const viewMode = ref('unit')
 
 const periods = [
   { value: 'all', label: '全部' },
@@ -191,10 +209,15 @@ const formatTime = (t) => {
 
 const loadStats = async () => {
   try {
-    const res = await getStatistics({ period: currentPeriod.value })
+    const args = { period: currentPeriod.value }
+    if (isOfficer()) {
+      args.view_mode = 'personal'
+    } else if (viewMode.value === 'personal') {
+      args.view_mode = 'personal'
+    }
+    const res = await getStatistics(args)
     if (res.success) {
       const d = res.data || {}
-      // 后端返回 status_stats: [{status: "预处理", count: N}, ...]
       const statusStats = d.status_stats || []
       const total = statusStats.reduce((sum, s) => sum + s.count, 0)
       const getCount = (statusName) => {
@@ -211,22 +234,17 @@ const loadStats = async () => {
   } catch {}
 }
 
-const loadUserInfo = async () => {
-  try {
-    const { getMenu } = await import('@/api/config')
-    const res = await getMenu()
-    if (res.success) {
-      userInfo.value = res.data.user || null
-    }
-  } catch {}
-}
-
 const loadRecentLetters = async () => {
   try {
-    const res = await getList({ page: 1, page_size: 10 })
+    const args = { page: 1, page_size: 10 }
+    if (isOfficer()) {
+      args.view_mode = 'personal'
+    } else if (viewMode.value === 'personal') {
+      args.view_mode = 'personal'
+    }
+    const res = await getList(args)
     if (res.success) {
       const list = res.data?.list || res.data || []
-      // 后端返回英文字段名，映射为中文字段名（与其他视图一致）
       recentLetters.value = list.map(item => ({
         '信件编号': item.letter_no,
         '群众姓名': item.citizen_name,
@@ -251,11 +269,23 @@ const changePeriod = async (period) => {
   await loadStats()
 }
 
+const refreshData = async () => {
+  await Promise.all([loadStats(), loadRecentLetters()])
+}
+
 onMounted(async () => {
   updateTime()
   setInterval(updateTime, 1000)
-  await loadUserInfo()
-  await Promise.all([loadStats(), loadRecentLetters()])
+  await loadUser()
+  if (isOfficer()) {
+    viewMode.value = 'personal'
+  } else if (isDistrict()) {
+    viewMode.value = 'unit'
+  } else {
+    viewMode.value = 'unit'
+  }
+  userInfo.value = { name: userState.name, org: '', role: userState.permission_level }
+  await refreshData()
   pollingTimer.value = setInterval(loadStats, 5000)
 })
 

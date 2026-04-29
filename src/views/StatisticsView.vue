@@ -1,6 +1,6 @@
 <template>
   <div class="h-full flex flex-col gap-4">
-    <div class="wp-header">
+    <div class="wp-header" style="display:flex;align-items:center;gap:12px">
       <div class="flex items-center gap-3">
         <div class="wp-panel-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">
           <i class="fas fa-chart-bar text-blue-600"></i>
@@ -10,7 +10,7 @@
           <div class="text-xs text-gray-400 mt-0.5">数据统计与分析</div>
         </div>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 ml-4">
         <button
           v-for="p in periods"
           :key="p.value"
@@ -19,9 +19,21 @@
           @click="changePeriod(p.value)"
         >{{ p.label }}</button>
       </div>
+      <div class="ml-auto">
+        <div class="flex bg-gray-100 rounded-xl p-0.5 gap-0.5 shadow-sm" v-if="isDistrict() || isCity()">
+          <button
+            class="px-3 py-1.5 text-xs rounded-lg transition-all duration-150 font-medium"
+            :class="viewMode === 'personal' ? 'bg-white text-blue-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'"
+            @click="viewMode = 'personal'; loadData()"
+          >个人</button>
+          <button
+            class="px-3 py-1.5 text-xs rounded-lg transition-all duration-150 font-medium"
+            :class="viewMode === 'unit' ? 'bg-white text-blue-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'"
+            @click="viewMode = 'unit'; loadData()"
+          >单位</button>
+        </div>
+      </div>
     </div>
-
-    <!-- Summary cards -->
     <div class="grid grid-cols-4 gap-4">
       <div v-for="card in summaryCards" :key="card.key" class="wp-stat-card">
         <div class="flex items-center justify-between mb-3">
@@ -78,10 +90,14 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { getStatistics } from '@/api/letter'
+import { useUser } from '@/stores/user'
 import * as echarts from 'echarts'
+
+const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
 
 const currentPeriod = ref('month')
 const statsData = ref({})
+const viewMode = ref('unit')
 const pieChart = ref(null)
 const lineChart = ref(null)
 const barChart = ref(null)
@@ -199,7 +215,13 @@ const initCharts = (data) => {
 
 const loadData = async () => {
   try {
-    const res = await getStatistics({ period: currentPeriod.value })
+    const args = { period: currentPeriod.value }
+    if (isOfficer()) {
+      args.view_mode = 'personal'
+    } else if (viewMode.value === 'personal') {
+      args.view_mode = 'personal'
+    }
+    const res = await getStatistics(args)
     if (res.success) {
       statsData.value = res.data || {}
       initCharts(res.data)
@@ -217,6 +239,14 @@ const changePeriod = (p) => {
 const handleResize = () => charts.forEach(c => c.resize())
 
 onMounted(async () => {
+  await loadUser()
+  if (isOfficer()) {
+    viewMode.value = 'personal'
+  } else if (isDistrict()) {
+    viewMode.value = 'unit'
+  } else {
+    viewMode.value = 'unit'
+  }
   await loadData()
   window.addEventListener('resize', handleResize)
 })

@@ -2,7 +2,7 @@
   <div class="h-full flex flex-col gap-4">
     <!-- Header -->
     <div class="wp-header" id="letters-header">
-      <div class="flex items-center justify-between gap-3">
+      <div class="flex items-center justify-between gap-3 w-full">
         <div class="flex items-center gap-3">
           <div class="wp-panel-icon"><i class="fas fa-envelope-open-text"></i></div>
           <div>
@@ -26,7 +26,7 @@
                 ? 'bg-white text-blue-600 shadow-md font-semibold'
                 : 'text-gray-500 hover:text-gray-700'"
               @click="viewMode = 'unit'; doSearch()"
-            >{{ isCity() ? '所有' : '单位' }}</button>
+            >单位</button>
           </div>
         </div>
       </div>
