@@ -2,28 +2,47 @@
   <div class="h-full flex flex-col gap-4">
     <!-- Header -->
     <div class="wp-header" id="letters-header">
-      <div class="flex items-center gap-3">
-        <div class="wp-panel-icon"><i class="fas fa-envelope-open-text"></i></div>
-        <div>
-          <div class="wp-panel-title">所有信件</div>
-          <div class="text-xs text-gray-400 mt-0.5">共 <span class="text-blue-600 font-medium">{{ totalCount }}</span> 封信件</div>
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="wp-panel-icon"><i class="fas fa-envelope-open-text"></i></div>
+          <div>
+            <div class="wp-panel-title">所有信件</div>
+            <div class="text-xs text-gray-400 mt-0.5">共 <span class="text-blue-600 font-medium">{{ totalCount }}</span> 封信件</div>
+          </div>
+        </div>
+        <!-- View mode toggle -->
+        <div class="flex items-center gap-2 ml-auto" v-if="isDistrict() || isCity()">
+          <div class="flex bg-gray-100 rounded-xl p-0.5 gap-0.5 shadow-sm">
+            <button
+              class="px-4 py-2 text-sm rounded-lg transition-all duration-150 font-medium"
+              :class="viewMode === 'personal'
+                ? 'bg-white text-blue-600 shadow-md font-semibold'
+                : 'text-gray-500 hover:text-gray-700'"
+              @click="viewMode = 'personal'; doSearch()"
+            >个人</button>
+            <button
+              class="px-4 py-2 text-sm rounded-lg transition-all duration-150 font-medium"
+              :class="viewMode === 'unit'
+                ? 'bg-white text-blue-600 shadow-md font-semibold'
+                : 'text-gray-500 hover:text-gray-700'"
+              @click="viewMode = 'unit'; doSearch()"
+            >{{ isCity() ? '所有' : '单位' }}</button>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Filter panel -->
     <div class="wp-panel p-4" id="letters-filter-panel">
-      <div class="flex flex-col gap-4">
-        <!-- First row: status, categories, search -->
-        <div class="flex flex-wrap gap-3 items-center">
-          <!-- Status dropdown -->
+      <div class="flex flex-col gap-3">
+        <!-- Row 1: Quick filters -->
+        <div class="flex flex-wrap items-center gap-3">
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 whitespace-nowrap">状态：</span>
             <select class="wp-select" style="width:120px" v-model="filters.status" @change="doSearch">
               <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
             </select>
           </div>
-          <!-- Category selects -->
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 whitespace-nowrap">分类：</span>
             <select class="wp-select" style="width:120px" v-model="filters.level1" @change="onLevel1Change">
@@ -39,89 +58,49 @@
               <option v-for="k in level3Options" :key="k" :value="k">{{ k }}</option>
             </select>
           </div>
-          <!-- Search box -->
-          <div class="flex-1 flex justify-end">
-            <div class="relative">
-              <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-              <input
-                v-model="filters.keyword"
-                class="wp-input pl-12"
-                style="width:200px"
-                placeholder="搜索关键词..."
-                @input="debounceSearch"
-                @keydown.enter="doSearch"
-              />
+          <div class="flex-1"></div>
+          <button class="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 whitespace-nowrap px-2 py-1" @click="showAdvanced = !showAdvanced">
+            <i class="fas" :class="showAdvanced ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            高级筛选
+          </button>
+          <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="resetFilters">
+            <i class="fas fa-undo-alt mr-1"></i>重置筛选
+          </button>
+          <button class="wp-btn wp-btn-primary text-xs py-1.5 px-3" @click="doSearch">
+            <i class="fas fa-search mr-1"></i>查询
+          </button>
+        </div>
+
+        <!-- Row 2: Advanced filters (collapsed) -->
+        <div v-show="showAdvanced" class="border-t border-gray-100 pt-4 mt-2">
+          <div class="grid grid-cols-3 gap-x-5 gap-y-3">
+            <div class="adv-field">
+              <label class="adv-label">来信人姓名</label>
+              <input v-model="filters.citizen_name" class="wp-input adv-input" placeholder="请输入姓名" @input="debounceSearch" @keydown.enter="doSearch" />
+            </div>
+            <div class="adv-field">
+              <label class="adv-label">手机号</label>
+              <input v-model="filters.phone" class="wp-input adv-input" placeholder="请输入手机号" @input="debounceSearch" @keydown.enter="doSearch" />
+            </div>
+            <div class="adv-field">
+              <label class="adv-label">身份证号</label>
+              <input v-model="filters.id_card" class="wp-input adv-input" placeholder="请输入身份证号" @input="debounceSearch" @keydown.enter="doSearch" />
+            </div>
+            <div class="adv-field">
+              <label class="adv-label">开始日期</label>
+              <input type="date" v-model="filters.start_time" class="wp-input adv-input" @input="debounceSearch" />
+            </div>
+            <div class="adv-field">
+              <label class="adv-label">结束日期</label>
+              <input type="date" v-model="filters.end_time" class="wp-input adv-input" @input="debounceSearch" />
+            </div>
+            <div class="adv-field">
+              <label class="adv-label">信件编号</label>
+              <input v-model="filters.letter_no" class="wp-input adv-input" placeholder="精确搜索" @input="debounceSearch" @keydown.enter="doSearch" />
             </div>
           </div>
         </div>
-        <!-- Second row: field filters -->
-        <div class="flex flex-wrap gap-3 items-center">
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-600 whitespace-nowrap">编号：</span>
-            <input
-              v-model="filters.letter_no"
-              class="wp-input"
-              style="width:150px"
-              placeholder="信件编号"
-              @input="debounceSearch"
-              @keydown.enter="doSearch"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-600 whitespace-nowrap">来信人：</span>
-            <input
-              v-model="filters.citizen_name"
-              class="wp-input"
-              style="width:120px"
-              placeholder="姓名"
-              @input="debounceSearch"
-              @keydown.enter="doSearch"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-600 whitespace-nowrap">电话：</span>
-            <input
-              v-model="filters.phone"
-              class="wp-input"
-              style="width:130px"
-              placeholder="手机号"
-              @input="debounceSearch"
-              @keydown.enter="doSearch"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-600 whitespace-nowrap">身份证号：</span>
-            <input
-              v-model="filters.id_card"
-              class="wp-input"
-              style="width:180px"
-              placeholder="身份证号码"
-              @input="debounceSearch"
-              @keydown.enter="doSearch"
-            />
-          </div>
-        </div>
-        <!-- Third row: time filters -->
-        <div class="flex flex-wrap gap-3 items-center">
-          <div class="flex items-center gap-2">
-            <span class="text-sm text-gray-600 whitespace-nowrap">时间段：</span>
-            <input
-              type="date"
-              v-model="filters.start_time"
-              class="wp-input"
-              style="width:140px"
-              @input="debounceSearch"
-            />
-            <span class="text-gray-400">至</span>
-            <input
-              type="date"
-              v-model="filters.end_time"
-              class="wp-input"
-              style="width:140px"
-              @input="debounceSearch"
-            />
-          </div>
-        </div>
+
       </div>
     </div>
 
@@ -223,8 +202,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getList, getCategories } from '@/api/letter'
+import { useUser } from '@/stores/user'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LetterDetailModal from '@/components/LetterDetailModal.vue'
+
+const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
 
 const letters = ref([])
 const totalCount = ref(0)
@@ -234,7 +216,8 @@ const loading = ref(false)
 const detailVisible = ref(false)
 const selectedLetterNo = ref('')
 const categoryData = ref({})
-
+const showAdvanced = ref(false)
+const viewMode = ref('unit')
 const filters = ref({
   status: '',
   level1: '',
@@ -248,6 +231,7 @@ const filters = ref({
   start_time: '',
   end_time: '',
 })
+
 
 const statusOptions = [
   { value: '', label: '全部' },
@@ -380,6 +364,16 @@ const loadLetters = async () => {
     if (filters.value.start_time) args.start_time = filters.value.start_time
     if (filters.value.end_time) args.end_time = filters.value.end_time
 
+    // 权限数据隔离
+    if (isOfficer()) {
+      // 基层用户：只看到下发到本人的信件（后端从session取user ID）
+      args.view_mode = 'personal'
+    } else if (viewMode.value === 'personal') {
+      // 个人模式：只看分配到本人的
+      args.view_mode = 'personal'
+    }
+    // 单位模式/全部模式：不加 view_mode
+
     const res = await getList(args)
     console.log('res', res)
     if (res.success) {
@@ -458,7 +452,32 @@ const viewDetail = (letterNo) => {
 
 onMounted(async () => {
   console.log('LettersView mounted')
+  await loadUser()
+  // 根据权限初始化查看模式
+  if (isOfficer()) {
+    viewMode.value = 'personal'
+  } else if (isDistrict()) {
+    viewMode.value = 'unit' // 区县局默认单位模式
+  } else {
+    viewMode.value = 'unit' // 市局默认所有信件
+  }
   await loadCategories()
   await loadLetters()
 })
 </script>
+
+<style scoped>
+.adv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adv-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+.adv-input {
+  width: 100% !important;
+}
+</style>
