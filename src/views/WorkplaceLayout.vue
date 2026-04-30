@@ -79,9 +79,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { getMenu } from '@/api/config'
 import { logout } from '@/api/auth'
 import { resetAuthCache } from '@/router'
+import { useUser } from '@/stores/user'
 
 const router = useRouter()
 const route = useRoute()
+const { resetUser } = useUser()
 
 const pageLoading = ref(true)
 const fadeOutLoading = ref(false)
@@ -108,9 +110,11 @@ const handleMenuClick = async (item) => {
 const handleLogout = async () => {
   try {
     await logout()
+    resetUser()
     resetAuthCache()
     router.push('/login')
   } catch {
+    resetUser()
     resetAuthCache()
     router.push('/login')
   }

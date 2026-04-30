@@ -33,9 +33,20 @@ export function useUser() {
     }
   }
 
+  const resetUser = () => {
+    state.id = null
+    state.name = ''
+    state.nickname = ''
+    state.police_number = ''
+    state.unit_id = null
+    state.permission_level = ''
+    state.is_admin = false
+    state.loaded = false
+  }
+
   const isCity = () => state.permission_level === 'CITY'
   const isDistrict = () => state.permission_level === 'DISTRICT'
   const isOfficer = () => state.permission_level === 'OFFICER'
 
-  return { state, loadUser, isCity, isDistrict, isOfficer }
+  return { state, loadUser, resetUser, isCity, isDistrict, isOfficer }
 }

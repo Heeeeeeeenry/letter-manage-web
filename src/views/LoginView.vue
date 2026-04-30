@@ -105,8 +105,10 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '@/api/auth'
 import { setAuthenticated } from '@/router'
+import { useUser } from '@/stores/user'
 
 const router = useRouter()
+const { resetUser } = useUser()
 
 const form = ref({ policeNumber: '', password: '', rememberMe: false })
 const loading = ref(false)
@@ -120,6 +122,7 @@ const handleLogin = async () => {
   try {
     const res = await login(form.value.policeNumber, form.value.password, form.value.rememberMe)
     if (res.success) {
+      resetUser()
       setAuthenticated()
       router.push('/home')
     } else {
