@@ -337,16 +337,6 @@
                     <!-- 步骤2: 诉求处理 -->
                     <div v-show="handleStep === 2" class="handle-step-panel">
                       <div class="handle-panel-content">
-                        <div class="content-section section-letter">
-                          <div class="section-title"><i class="fas fa-lightbulb"></i> AI 处理建议</div>
-                          <div class="section-content">
-                            <div v-if="processingSuggestion" class="suggestion-text">{{ processingSuggestion }}</div>
-                            <div v-else class="suggestion-empty" @click="getAISuggestion">
-                              <i class="fas fa-robot"></i>
-                              <span>点击获取AI处理建议</span>
-                            </div>
-                          </div>
-                        </div>
                         <div class="content-section section-flow mt-3">
                           <div class="section-title"><i class="fas fa-pen"></i> 处理结果</div>
                           <div class="section-content">
@@ -367,14 +357,33 @@
                             </div>
                           </div>
                         </div>
+                        <div class="content-section section-flow mt-3">
+                          <div class="section-title"><i class="fas fa-paperclip"></i> 处理附件</div>
+                          <div class="section-content">
+                            <div class="upload-area">
+                              <div class="wp-upload-zone" @dragover.prevent @drop.prevent="handleFileDrop($event, 'attachment')" @click="$refs.attachmentInput.click()">
+                                <i class="fas fa-cloud-upload-alt text-2xl mb-2 block"></i>
+                                <div class="text-sm">点击或拖拽上传附件</div>
+                                <div class="text-xs text-gray-400 mt-1">支持图片、文档、压缩包等，最多20个文件</div>
+                                <input ref="attachmentInput" type="file" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.txt" class="hidden" multiple @change="handleFileSelect($event, 'attachment')" />
+                              </div>
+                              <div v-if="attachments.length" class="mt-2">
+                                <div class="file-list">
+                                  <div v-for="(f, i) in attachments" :key="i" class="file-item">
+                                    <i class="fas fa-file text-gray-400"></i>
+                                    <span class="file-name">{{ f.name }}</span>
+                                    <span class="file-size">{{ formatFileSize(f.size) }}</span>
+                                    <button class="file-remove" @click="attachments.splice(i,1)" title="移除"><i class="fas fa-times"></i></button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                         <div class="step-actions flex justify-between mt-3">
                           <button class="wp-btn wp-btn-secondary" @click="handleStep = 1">
                             <i class="fas fa-arrow-left"></i>
                             <span>上一步：联系群众</span>
-                          </button>
-                          <button class="wp-btn wp-btn-success" @click="handleSubmit">
-                            <span>提交</span>
-                            <i class="fas fa-check"></i>
                           </button>
                         </div>
                       </div>
@@ -512,6 +521,7 @@ const selectedLetter = ref(null)
 const loadingList = ref(false)
 const submitting = ref(false)
 const recordings = ref([])
+const attachments = ref([])
 const remark = ref('')
 const activeTab = ref('flow')
 const loadingFlow = ref(false)
@@ -819,11 +829,13 @@ const loadHistoryLetters = async (idCard) => {
 const handleFileSelect = (e, type) => {
   const files = Array.from(e.target.files)
   if (type === 'recording') recordings.value = [...recordings.value, ...files]
+  else if (type === 'attachment') attachments.value = [...attachments.value, ...files]
 }
 
 const handleFileDrop = (e, type) => {
   const files = Array.from(e.dataTransfer.files)
   if (type === 'recording') recordings.value = [...recordings.value, ...files]
+  else if (type === 'attachment') attachments.value = [...attachments.value, ...files]
 }
 
 // 退回弹窗状态
@@ -855,18 +867,24 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     // Upload recordings first if any — one file at a time
-    if (recordings.value.length > 0) {
-      for (const file of recordings.value) {
+    const uploadFiles = async (files, fileType) => {
+      for (const file of files) {
         const formData = new FormData()
         formData.append('letter_no', selectedLetter.value['信件编号'])
         formData.append('file', file)
-        formData.append('file_type', 'call_recordings')
+        formData.append('file_type', fileType)
         await fetch('/api/letter/', {
           method: 'POST',
           credentials: 'include',
           body: formData,
         })
       }
+    }
+    if (recordings.value.length > 0) {
+      await uploadFiles(recordings.value, 'call_recordings')
+    }
+    if (attachments.value.length > 0) {
+      await uploadFiles(attachments.value, 'handler_feedback_files')
     }
     await submitProcessing({
       letter_no: selectedLetter.value['信件编号'],
@@ -882,6 +900,7 @@ const handleSubmit = async () => {
     contactFeedback.value = ''
     handleResult.value = ''
     recordings.value = []
+    attachments.value = []
     // 如果列表还有未处理的，自动选中第一封
     const remaining = Object.values(letters.value)
     if (remaining.length > 0) {

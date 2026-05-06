@@ -57,10 +57,10 @@
           <div class="wp-panel-header compact">
             <div class="text-sm font-semibold">核查详情</div>
             <div class="flex gap-2">
-              <button class="wp-btn wp-btn-danger text-xs py-1 px-2" :disabled="submitting" @click="handleReject">
+              <button class="wp-btn wp-btn-danger text-xs py-1 px-2" :disabled="submitting" @click="handleRejectClick">
                 <i class="fas fa-times"></i>不通过
               </button>
-              <button class="wp-btn wp-btn-success text-xs py-1 px-2" :disabled="submitting" @click="handleApprove">
+              <button class="wp-btn wp-btn-success text-xs py-1 px-2" :disabled="submitting" @click="handleApproveClick">
                 <i class="fas fa-check"></i>核查通过
               </button>
             </div>
@@ -102,8 +102,76 @@
                 </div>
               </div>
             </div>
+
+            <!-- Attachments -->
+            <div v-if="hasAuditFiles">
+              <div class="text-sm font-medium text-gray-700 mb-3">附件</div>
+              <div class="space-y-3">
+                <div v-if="auditFileGroups.handler_feedback.length" class="bg-gray-50 rounded-xl p-3">
+                  <div class="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-600">
+                    <i class="fas fa-clipboard-check text-purple-500"></i>处理人反馈附件
+                  </div>
+                  <div class="space-y-2">
+                    <div v-for="(f, i) in auditFileGroups.handler_feedback" :key="i">
+                      <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                        <img :src="f.url" :alt="f.name" class="w-full max-h-36 object-cover" />
+                        <div class="text-xs text-gray-500 px-2 py-1 truncate">{{ f.name }}</div>
+                      </div>
+                      <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-2">
+                        <div class="text-xs text-gray-500 mb-1.5 truncate">{{ f.name }}</div>
+                        <audio controls :src="f.url" class="w-full" style="height:32px"></audio>
+                      </div>
+                      <a v-else :href="f.url" target="_blank"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white rounded-lg border border-gray-200 hover:border-purple-400 hover:shadow-sm transition-all text-xs text-gray-700">
+                        <i class="fas fa-file text-purple-400"></i>{{ f.name }}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="auditFileGroups.call_recordings.length" class="bg-gray-50 rounded-xl p-3">
+                  <div class="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-600">
+                    <i class="fas fa-microphone text-red-500"></i>通话录音
+                  </div>
+                  <div class="space-y-3">
+                    <div v-for="(f, i) in auditFileGroups.call_recordings" :key="i" class="bg-white rounded-lg border border-gray-200 p-2">
+                      <div class="text-xs text-gray-500 mb-1.5 truncate">{{ f.name }}</div>
+                      <audio controls :src="f.url" class="w-full" style="height:32px"></audio>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image lightbox -->
+  <div v-if="previewImage" class="wp-modal-overlay" style="z-index:9999" @click="previewImage = null">
+    <div class="relative max-w-4xl max-h-[90vh] mx-4" @click.stop>
+      <button class="absolute -top-10 right-0 text-white text-2xl hover:text-gray-300" @click="previewImage = null">&times;</button>
+      <img :src="previewImage" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain" />
+    </div>
+  </div>
+
+  <!-- Confirm modal -->
+  <div v-if="showConfirm" class="wp-modal-overlay" style="z-index:9999" @click.self="showConfirm = false">
+    <div class="wp-modal" style="max-width:400px;width:90%">
+      <div class="text-center">
+        <div class="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center"
+          :class="confirmType === 'danger' ? 'bg-red-100' : 'bg-blue-100'">
+          <i class="fas text-xl"
+            :class="confirmType === 'danger' ? 'fa-exclamation-triangle text-red-500' : 'fa-question-circle text-blue-500'"></i>
+        </div>
+        <div class="font-semibold text-gray-800 mb-1">{{ confirmTitle }}</div>
+        <div class="text-sm text-gray-500 mb-6">{{ confirmMessage }}</div>
+        <div class="flex gap-3 justify-center">
+          <button class="wp-btn wp-btn-secondary text-sm px-6" @click="showConfirm = false">取消</button>
+          <button class="wp-btn text-sm px-6"
+            :class="confirmType === 'danger' ? 'wp-btn-danger' : 'wp-btn-primary'"
+            @click="onConfirm">{{ confirmBtn }}</button>
+        </div>
       </div>
     </div>
   </div>
@@ -113,6 +181,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getAuditList, getDetail, auditApprove, auditReject } from '@/api/letter'
 import { normalizeFlowRecords } from '@/utils/flow'
+import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const letters = ref({})
@@ -120,9 +189,53 @@ const selectedLetter = ref(null)
 const loadingList = ref(false)
 const submitting = ref(false)
 const auditComment = ref('')
+const showConfirm = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+const confirmBtn = ref('确定')
+const confirmType = ref('danger')
+let confirmCallback = null
 let pollTimer = null
 
 const flowRecords = computed(() => selectedLetter.value?.['流转记录'] || [])
+
+const parseFileArray = (val) => {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+  }
+  return []
+}
+
+const audioExts = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma', '.opus', '.webm']
+const isAudioFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return audioExts.some(ext => lower.endsWith(ext))
+}
+
+const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+const isImageFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return imageExts.some(ext => lower.endsWith(ext))
+}
+
+const previewImage = ref(null)
+
+const auditFileGroups = computed(() => {
+  const files = selectedLetter.value?.['附件'] || {}
+  return {
+    handler_feedback: parseFileArray(files.handler_feedback_files),
+    call_recordings: parseFileArray(files.call_recordings),
+  }
+})
+
+const hasAuditFiles = computed(() => {
+  const g = auditFileGroups.value
+  return g.handler_feedback.length > 0 || g.call_recordings.length > 0
+})
 
 const formatTime = (t) => {
   if (!t) return '-'
@@ -132,16 +245,64 @@ const formatTime = (t) => {
 const selectLetter = async (letter) => {
   selectedLetter.value = letter
   auditComment.value = ''
-  // Fetch flow records from detail API
+  // Fetch flow records and attachments from detail API
   try {
     const res = await getDetail(letter['信件编号'])
     const records = res?.data?.flow?.flow_records
     if (Array.isArray(records) && records.length > 0) {
       selectedLetter.value['流转记录'] = normalizeFlowRecords(records)
     }
+    const files = res?.data?.files || {}
+    selectedLetter.value['附件'] = files
   } catch (e) {
     console.error('Failed to fetch flow records:', e)
   }
+}
+
+const showConfirmDialog = (title, message, btn, type, cb) => {
+  confirmTitle.value = title
+  confirmMessage.value = message
+  confirmBtn.value = btn
+  confirmType.value = type
+  confirmCallback = cb
+  showConfirm.value = true
+}
+
+const onConfirm = () => {
+  showConfirm.value = false
+  if (confirmCallback) confirmCallback()
+}
+
+const handleApproveClick = () => {
+  if (!selectedLetter.value) return
+  showConfirmDialog(
+    '确认核查通过',
+    '确定将此信件标记为核查通过？',
+    '核查通过',
+    'primary',
+    handleApprove
+  )
+}
+
+const handleRejectClick = () => {
+  if (!selectedLetter.value) return
+  if (!auditComment.value.trim()) {
+    showConfirmDialog(
+      '提示',
+      '请填写核查意见后再提交不通过',
+      '知道了',
+      'danger',
+      null
+    )
+    return
+  }
+  showConfirmDialog(
+    '确认核查不通过',
+    '确定将此信件退回？此操作不可撤销。',
+    '确认退回',
+    'danger',
+    handleReject
+  )
 }
 
 const handleApprove = async () => {
@@ -157,7 +318,6 @@ const handleApprove = async () => {
 
 const handleReject = async () => {
   if (!selectedLetter.value) return
-  if (!auditComment.value.trim()) { alert('请填写不通过原因'); return }
   submitting.value = true
   try {
     await auditReject({ letter_no: selectedLetter.value['信件编号'], remark: auditComment.value })
@@ -182,12 +342,8 @@ const loadData = async () => {
           '手机号': letter.phone,
           '身份证号': letter.id_card,
           '诉求内容': letter.content,
-          '信件一级分类': letter.category_l1,
-          '信件二级分类': letter.category_l2,
-          '信件三级分类': letter.category_l3,
-          '信件状态': letter.current_status,
+          '信件状态': statusName(letter.current_status),
           '来信时间': letter.received_at,
-          '当前信件处理单位': letter.current_unit,
           // Keep original object for debugging
           _raw: letter
         }

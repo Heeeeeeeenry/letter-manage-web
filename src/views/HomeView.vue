@@ -1,5 +1,6 @@
 <template>
-  <div class="h-full flex flex-col gap-5">
+  <div class="h-full overflow-y-auto">
+    <div class="flex flex-col gap-5">
     <!-- Welcome Banner -->
     <div class="welcome-banner">
       <div class="relative z-10">
@@ -109,7 +110,7 @@
     </div>
 
     <!-- Recent letters -->
-    <div class="wp-panel flex-1 flex flex-col min-h-0">
+    <div class="wp-panel flex flex-col">
       <div class="wp-panel-header">
         <div class="flex items-center gap-3">
           <div class="wp-panel-icon">
@@ -124,7 +125,7 @@
           <i class="fas fa-arrow-right"></i>查看全部
         </button>
       </div>
-      <div class="flex-1 overflow-y-auto min-h-0">
+      <div>
         <table class="wp-table">
           <thead>
             <tr>
@@ -158,6 +159,7 @@
         </table>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -165,6 +167,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { getList, getStatistics } from '@/api/letter'
 import { useUser } from '@/stores/user'
+import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
@@ -218,17 +221,11 @@ const loadStats = async () => {
     const res = await getStatistics(args)
     if (res.success) {
       const d = res.data || {}
-      const statusStats = d.status_stats || []
-      const total = statusStats.reduce((sum, s) => sum + s.count, 0)
-      const getCount = (statusName) => {
-        const found = statusStats.find(s => s.status === statusName)
-        return found ? found.count : 0
-      }
       stats.value = {
-        total: total,
-        preprocessing: getCount('预处理'),
-        processing: getCount('处理中'),
-        feedbacking: getCount('待分县局/支队审核'),
+        total: d['信件总量'] || 0,
+        preprocessing: d['预处理'] || 0,
+        processing: d['处理中'] || 0,
+        feedbacking: d['待分县局/支队审核'] || 0,
       }
     }
   } catch {}
@@ -252,12 +249,8 @@ const loadRecentLetters = async () => {
         '身份证号': item.id_card,
         '诉求内容': item.content,
         '来信时间': item.received_at,
-        '来源渠道': item.channel || item.source || '-',
-        '信件一级分类': item.category_l1,
-        '信件二级分类': item.category_l2,
-        '信件三级分类': item.category_l3,
-        '信件状态': item.current_status,
-        '当前信件处理单位': item.current_unit,
+        '来源渠道': channelName(item.channel),
+        '信件状态': statusName(item.current_status),
         '更新时间': item.updated_at,
       }))
     }

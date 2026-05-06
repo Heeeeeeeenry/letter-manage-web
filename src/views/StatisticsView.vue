@@ -95,7 +95,7 @@ import * as echarts from 'echarts'
 
 const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
 
-const currentPeriod = ref('month')
+const currentPeriod = ref('all')
 const statsData = ref({})
 const viewMode = ref('unit')
 const pieChart = ref(null)
@@ -106,6 +106,7 @@ const donutChart = ref(null)
 let charts = []
 
 const periods = [
+  { value: 'all', label: '全部' },
   { value: 'day', label: '今日' },
   { value: 'week', label: '本周' },
   { value: 'month', label: '本月' },
@@ -116,7 +117,7 @@ const summaryCards = [
   { key: '信件总量', label: '信件总量', icon: 'fa-envelope', color: 'text-blue-600', bg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)' },
   { key: '预处理', label: '预处理', icon: 'fa-clock', color: 'text-yellow-600', bg: 'linear-gradient(135deg,#fef9c3,#fef08a)' },
   { key: '处理中', label: '处理中', icon: 'fa-spinner', color: 'text-green-600', bg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' },
-  { key: '已完成', label: '已完成', icon: 'fa-check-circle', color: 'text-purple-600', bg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' },
+  { key: '待分县局/支队审核', label: '待分县局/支队审核', icon: 'fa-check-circle', color: 'text-purple-600', bg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' },
 ]
 
 const initCharts = (data) => {
@@ -153,12 +154,18 @@ const initCharts = (data) => {
 
   // Line chart - trend
   if (lineChart.value) {
-    const trendData = data?.['趋势'] || { dates: ['周一','周二','周三','周四','周五','周六','周日'], values: [5,8,6,12,9,4,7] }
+    const trendData = data?.['趋势'] || { dates: [], values: [] }
+    const weekDayNames = ['周日','周一','周二','周三','周四','周五','周六']
+    const labels = trendData.dates.map(d => {
+      // 只有纯数字(且值在0-6)才转为星期名，日期如"04-10"不转换
+      if (/^[0-6]$/.test(d)) return weekDayNames[parseInt(d)]
+      return d
+    })
     const c = echarts.init(lineChart.value)
     c.setOption({
       tooltip: { trigger: 'axis' },
       grid: { left: '5%', right: '5%', top: '10%', bottom: '10%' },
-      xAxis: { type: 'category', data: trendData.dates, axisLabel: { fontSize: 11 } },
+      xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 11 } },
       yAxis: { type: 'value', axisLabel: { fontSize: 11 } },
       series: [{
         type: 'line',

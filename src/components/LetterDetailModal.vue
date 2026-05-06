@@ -97,11 +97,116 @@
 
         <!-- Attachments Tab -->
         <div v-if="activeTab === 'files'">
-          <div class="text-center py-8 text-gray-400">
+          <div v-if="!hasAnyFiles" class="text-center py-8 text-gray-400">
             <i class="fas fa-paperclip text-2xl mb-2 block"></i>
             暂无附件
           </div>
+          <div v-else class="space-y-5">
+            <div v-if="fileGroups.city_dispatch.length" class="bg-gray-50 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+                <i class="fas fa-paper-plane text-blue-500"></i>市局下发附件
+              </div>
+              <div class="space-y-3">
+                <div v-for="(f, i) in fileGroups.city_dispatch" :key="i">
+                  <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                    <img :src="f.url" :alt="f.name" class="w-full max-h-48 object-cover" />
+                    <div class="text-xs text-gray-500 px-3 py-1.5 truncate">{{ f.name }}</div>
+                  </div>
+                  <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-3">
+                    <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
+                    <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                  </div>
+                  <a v-else :href="f.url" target="_blank"
+                    class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition-all text-sm text-gray-700">
+                    <i class="fas fa-file text-blue-400"></i>{{ f.name }}
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div v-if="fileGroups.district_dispatch.length" class="bg-gray-50 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+                <i class="fas fa-building text-green-500"></i>区县局下发附件
+              </div>
+              <div class="space-y-3">
+                <div v-for="(f, i) in fileGroups.district_dispatch" :key="i">
+                  <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                    <img :src="f.url" :alt="f.name" class="w-full max-h-48 object-cover" />
+                    <div class="text-xs text-gray-500 px-3 py-1.5 truncate">{{ f.name }}</div>
+                  </div>
+                  <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-3">
+                    <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
+                    <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                  </div>
+                  <a v-else :href="f.url" target="_blank"
+                    class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-green-400 hover:shadow-sm transition-all text-sm text-gray-700">
+                    <i class="fas fa-file text-green-400"></i>{{ f.name }}
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div v-if="fileGroups.handler_feedback.length" class="bg-gray-50 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+                <i class="fas fa-clipboard-check text-purple-500"></i>处理人反馈附件
+              </div>
+              <div class="space-y-3">
+                <div v-for="(f, i) in fileGroups.handler_feedback" :key="i">
+                  <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                    <img :src="f.url" :alt="f.name" class="w-full max-h-48 object-cover" />
+                    <div class="text-xs text-gray-500 px-3 py-1.5 truncate">{{ f.name }}</div>
+                  </div>
+                  <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-3">
+                    <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
+                    <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                  </div>
+                  <a v-else :href="f.url" target="_blank"
+                    class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-purple-400 hover:shadow-sm transition-all text-sm text-gray-700">
+                    <i class="fas fa-file text-purple-400"></i>{{ f.name }}
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div v-if="fileGroups.district_feedback.length" class="bg-gray-50 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+                <i class="fas fa-file-alt text-orange-500"></i>区县局反馈附件
+              </div>
+              <div class="space-y-3">
+                <div v-for="(f, i) in fileGroups.district_feedback" :key="i">
+                  <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                    <img :src="f.url" :alt="f.name" class="w-full max-h-48 object-cover" />
+                    <div class="text-xs text-gray-500 px-3 py-1.5 truncate">{{ f.name }}</div>
+                  </div>
+                  <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-3">
+                    <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
+                    <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                  </div>
+                  <a v-else :href="f.url" target="_blank"
+                    class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-orange-400 hover:shadow-sm transition-all text-sm text-gray-700">
+                    <i class="fas fa-file text-orange-400"></i>{{ f.name }}
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div v-if="fileGroups.call_recordings.length" class="bg-gray-50 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+                <i class="fas fa-microphone text-red-500"></i>通话录音
+              </div>
+              <div class="space-y-3">
+                <div v-for="(f, i) in fileGroups.call_recordings" :key="i" class="bg-white rounded-lg border border-gray-200 p-3">
+                  <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
+                  <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Image lightbox -->
+    <div v-if="previewImage" class="wp-modal-overlay" style="z-index:9999" @click="previewImage = null">
+      <div class="relative max-w-4xl max-h-[90vh] mx-4" @click.stop>
+        <button class="absolute -top-10 right-0 text-white text-2xl hover:text-gray-300" @click="previewImage = null">&times;</button>
+        <img :src="previewImage" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain" />
       </div>
     </div>
   </div>
@@ -111,6 +216,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { getDetail } from '@/api/letter'
 import { normalizeFlowRecords } from '@/utils/flow'
+import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from './StatusBadge.vue'
 import InfoRow from './InfoRow.vue'
 
@@ -128,6 +234,48 @@ const tabs = [
 ]
 
 const flowRecords = computed(() => letterData.value?.['流转记录'] || [])
+
+const filesData = computed(() => letterData.value?.['附件'] || {})
+
+const parseFileArray = (val) => {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+  }
+  return []
+}
+
+const audioExts = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma', '.opus', '.webm']
+const isAudioFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return audioExts.some(ext => lower.endsWith(ext))
+}
+
+const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+const isImageFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return imageExts.some(ext => lower.endsWith(ext))
+}
+
+const previewImage = ref(null)
+
+const fileGroups = computed(() => ({
+  city_dispatch: parseFileArray(filesData.value.city_dispatch_files),
+  district_dispatch: parseFileArray(filesData.value.district_dispatch_files),
+  handler_feedback: parseFileArray(filesData.value.handler_feedback_files),
+  district_feedback: parseFileArray(filesData.value.district_feedback_files),
+  call_recordings: parseFileArray(filesData.value.call_recordings),
+}))
+
+const hasAnyFiles = computed(() => {
+  const g = fileGroups.value
+  return g.city_dispatch.length > 0 || g.district_dispatch.length > 0 ||
+    g.handler_feedback.length > 0 || g.district_feedback.length > 0 ||
+    g.call_recordings.length > 0
+})
 
 const formatTime = (t) => {
   if (!t) return '-'
@@ -190,17 +338,16 @@ const load = async () => {
         '群众姓名': letter.citizen_name || '',
         '手机号': letter.phone || '',
         '身份证号': letter.id_card || '',
-        '来源渠道': letter.channel || '',
-        '信件状态': letter.current_status || '',
-        '信件一级分类': letter.category_l1 || '',
-        '信件二级分类': letter.category_l2 || '',
-        '信件三级分类': letter.category_l3 || '',
+        '来源渠道': channelName(letter.channel),
+        '信件状态': statusName(letter.current_status),
         '诉求内容': letter.content || '',
         '专项关注标签': letter.special_tags || [],
         '流转记录': normalizeFlowRecords(flow.flow_records),
+        '附件': files || {},
         // Include raw data for debugging
         _rawLetter: letter,
-        _rawFlow: flow
+        _rawFlow: flow,
+        _rawFiles: files
       }
       console.log('Transformed letterData:', letterData.value)
     } else {

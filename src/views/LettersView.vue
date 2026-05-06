@@ -203,6 +203,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getList, getCategories } from '@/api/letter'
 import { useUser } from '@/stores/user'
+import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
 import LetterDetailModal from '@/components/LetterDetailModal.vue'
 
@@ -383,11 +384,8 @@ const loadLetters = async () => {
         '信件编号': letter.letter_no,
         '群众姓名': letter.citizen_name,
         '手机号': letter.phone,
-        '来源渠道': letter.channel,
-        '信件一级分类': letter.category_l1,
-        '信件二级分类': letter.category_l2,
-        '信件三级分类': letter.category_l3,
-        '信件状态': letter.current_status,
+        '来源渠道': channelName(letter.channel),
+        '信件状态': statusName(letter.current_status),
         '来信时间': letter.received_at,
         // Include original object for debugging
         _raw: letter
