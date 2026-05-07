@@ -52,7 +52,7 @@
 
     <!-- Stat cards -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="wp-stat-card">
+      <div class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters('')">
         <div class="flex items-center justify-between mb-4">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">
             <i class="fas fa-envelope text-blue-600"></i>
@@ -66,7 +66,7 @@
         </div>
       </div>
 
-      <div class="wp-stat-card">
+      <div class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters('预处理')">
         <div class="flex items-center justify-between mb-4">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#fef9c3,#fef08a)">
             <i class="fas fa-clock text-yellow-600"></i>
@@ -80,7 +80,7 @@
         </div>
       </div>
 
-      <div class="wp-stat-card">
+      <div class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters('处理中')">
         <div class="flex items-center justify-between mb-4">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0)">
             <i class="fas fa-spinner text-green-600"></i>
@@ -94,7 +94,7 @@
         </div>
       </div>
 
-      <div class="wp-stat-card">
+      <div class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters('待分县局/支队审核')">
         <div class="flex items-center justify-between mb-4">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#ede9fe,#ddd6fe)">
             <i class="fas fa-comments text-purple-600"></i>
@@ -165,15 +165,23 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { getList, getStatistics } from '@/api/letter'
 import { useUser } from '@/stores/user'
 import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
 
 const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
+const router = useRouter()
 
 const userInfo = ref(null)
 const stats = ref({})
+
+const navToLetters = (status) => {
+  const query = {}
+  if (status) query.status = status
+  router.push({ name: 'letters', query })
+}
 const recentLetters = ref([])
 const currentPeriod = ref('all')
 const currentTime = ref('')

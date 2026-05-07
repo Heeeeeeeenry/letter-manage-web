@@ -340,8 +340,11 @@ const load = async () => {
         '身份证号': letter.id_card || '',
         '来源渠道': channelName(letter.channel),
         '信件状态': statusName(letter.current_status),
+        '信件一级分类': letter.category?.level1 || '',
+        '信件二级分类': letter.category?.level2 || '',
+        '信件三级分类': letter.category?.level3 || '',
         '诉求内容': letter.content || '',
-        '专项关注标签': letter.special_tags || [],
+        '专项关注标签': null,
         '流转记录': normalizeFlowRecords(flow.flow_records),
         '附件': files || {},
         // Include raw data for debugging

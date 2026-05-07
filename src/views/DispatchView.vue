@@ -249,8 +249,12 @@
             <!-- dispatch-controls-row -->
             <div class="dispatch-bottom-row dispatch-controls-row flex items-center gap-2 px-3 py-1.5 flex-wrap">
               <!-- Category dropdown -->
-              <div class="dispatch-searchable-select relative" style="width:240px" :class="{ active: categoryDropdownOpen }" id="category-select-container">
-                <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none" @click="toggleCategoryDropdown">
+              <div class="dispatch-searchable-select relative" style="width:240px"
+                :class="{ active: categoryDropdownOpen, 'opacity-60 pointer-events-none': !isCityUser }"
+                id="category-select-container"
+                :title="!isCityUser ? '非市级用户不可更改分类' : ''">
+                <div class="dispatch-select-input-wrapper flex items-center bg-white border border-gray-200 rounded-lg px-3 py-1.5 cursor-pointer select-none"
+                  @click="isCityUser && toggleCategoryDropdown()">
                   <input type="text" class="dispatch-select-input flex-1 text-xs bg-transparent outline-none cursor-pointer min-w-0"
                     id="category-select-input"
                     :value="selectedCategory"
@@ -317,9 +321,9 @@
                     <div v-if="filteredFocusList.length === 0" class="dispatch-select-option px-3 py-1.5 text-xs text-gray-400 disabled">无匹配标签</div>
                     <div v-else v-for="f in filteredFocusList" :key="f.id"
                       class="dispatch-select-option px-3 py-1.5 text-xs cursor-pointer hover:bg-blue-50"
-                      :class="{ 'bg-blue-100 text-blue-700 font-medium': selectedFocus === (f['专项关注标题'] || f.tag_name || f.title || '') }"
+                      :class="{ 'bg-blue-100 text-blue-700 font-medium': selectedFocus === (f.name || '') }"
                       @click="selectFocus(f)">
-                      <span>{{ f['专项关注标题'] || f.tag_name || f.title }}</span>
+                      <span>{{ f.name }}</span>
                     </div>
                   </div>
                 </div>
@@ -455,9 +459,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi } from '@/api/letter'
+import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi, setSpecialFocus } from '@/api/letter'
 import { getDispatchUnits, getSpecialFocusList, getUsersInUnit } from '@/api/setting'
+import { statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
+import { useUser } from '@/stores/user'
+
+const userStore = useUser()
+const isCityUser = computed(() => userStore.isCity())
 
 // State
 const letters = ref({})
@@ -502,6 +511,7 @@ const scrollDetailToTop = async () => {
 
 // Category tree
 const categoryTree = ref([])
+const dispatchCategoryIdMap = ref({})  // "level1/level2/level3" → category_id
 const currentL2List = ref([])
 const currentL3List = ref([])
 
@@ -566,13 +576,14 @@ const focusList = ref([])
 const showFocusDropdown = ref(false)
 const focusSearch = ref('')
 const selectedFocus = ref('')
+const selectedFocusId = ref(null)
 
 const filteredFocusList = computed(() => {
   if (!focusSearch.value) return focusList.value
   const q = focusSearch.value.toLowerCase()
   return focusList.value.filter(f => {
-    const name = (f['专项关注标题'] || f.tag_name || f.title || '').toLowerCase()
-    const desc = (f['专项关注描述'] || f.description || '').toLowerCase()
+    const name = (f.name || '').toLowerCase()
+    const desc = (f.description || '').toLowerCase()
     return name.includes(q) || desc.includes(q)
   })
 })
@@ -585,8 +596,13 @@ const toggleFocusDropdown = () => {
 }
 
 const selectFocus = (item) => {
-  selectedFocus.value = item['专项关注标题'] || item.tag_name || item.title || ''
+  selectedFocus.value = item.name || ''
+  selectedFocusId.value = item.id || null
   showFocusDropdown.value = false
+  // 选中后立即保存到 letter_special_focuses 表
+  if (selectedLetter.value && item.id) {
+    setSpecialFocus({ letter_no: selectedLetter.value['信件编号'], focus_id: item.id }).catch(() => {})
+  }
 }
 
 // Form data
@@ -777,6 +793,17 @@ const selectLetter = async (letter) => {
   unitUsers.value = []
   // 预填分类下拉显示
   selectedCategory.value = [letter['信件一级分类'], letter['信件二级分类'], letter['信件三级分类']].filter(Boolean).join(' / ')
+  // 回填专项关注
+  if (letter.focus_id) {
+    const matched = focusList.value.find(f => f.id === letter.focus_id)
+    if (matched) {
+      selectedFocus.value = matched.name || ''
+      selectedFocusId.value = matched.id
+    }
+  } else {
+    selectedFocus.value = ''
+    selectedFocusId.value = null
+  }
   unitSearchKeyword.value = ''
   showUnitDropdown.value = false
   // 选中信件后滚动详情区到顶部
@@ -887,7 +914,13 @@ const applyAISuggestions = () => {
     }
   }
   if (r.suggested_unit) {
-    form.value.unit = matchUnitByName(r.suggested_unit)
+    const matchedName = matchUnitByName(r.suggested_unit)
+    form.value.unit = matchedName
+    // 同时查找匹配到的单位 ID，确保下发时 unit_id 不为空
+    const matched = dispatchUnits.value.find(u => u.fullName === matchedName)
+    if (matched?.id) {
+      form.value.unitId = matched.id
+    }
   }
 }
 
@@ -979,10 +1012,18 @@ const handleDispatch = () => {
 
 // Confirm dispatch
 const confirmDispatch = async () => {
+  if (!selectedLetter.value) {
+    showDispatchModal.value = false
+    return
+  }
+  const letterNo = selectedLetter.value['信件编号']
   submitting.value = true
   try {
+    const catKey = [form.value.categoryL1, form.value.categoryL2, form.value.categoryL3]
+      .filter(Boolean).join('/')
+    const categoryId = dispatchCategoryIdMap.value[catKey] || 0
     await dispatch({
-      letter_no: selectedLetter.value['信件编号'],
+      letter_no: letterNo,
       target_unit: form.value.unit,
       unit_id: form.value.unitId,
       remark: form.value.notes,
@@ -991,21 +1032,23 @@ const confirmDispatch = async () => {
       id_card: form.value.idcard,
       received_at: form.value.time,
       content: form.value.content,
-      category_l1: form.value.categoryL1,
-      category_l2: form.value.categoryL2,
-      category_l3: form.value.categoryL3,
+      category_id: categoryId,
       handler_user_id: form.value.handlerUserId || undefined,
+      focus_id: selectedFocusId.value || undefined,
     })
     showDispatchModal.value = false
-    // 重新加载信件列表
-    const prevLetterNo = selectedLetter.value['信件编号']
     selectedLetter.value = null
     await loadData()
-    // 处理后选中该信件刷新流转记录
-    if (prevLetterNo && letters.value[prevLetterNo]) {
-      await selectLetter(letters.value[prevLetterNo])
+    // 如果信件仍在列表中（如仅被下发但仍在当前视图），重新选中
+    if (letters.value[letterNo]) {
+      await selectLetter(letters.value[letterNo])
     }
-  } catch {}
+  } catch (e) {
+    console.error('dispatch failed:', e)
+    showDispatchModal.value = false
+    // 即使下发失败也刷新列表（可能后端已部分处理）
+    await loadData()
+  }
   submitting.value = false
 }
 
@@ -1339,13 +1382,14 @@ const loadData = async () => {
           '手机号': letter.phone,
           '身份证号': letter.id_card,
           '诉求内容': letter.content,
-          '信件一级分类': letter.category_l1,
-          '信件二级分类': letter.category_l2,
-          '信件三级分类': letter.category_l3,
-          '信件状态': letter.current_status,
+          '信件一级分类': letter.category?.level1 || '',
+          '信件二级分类': letter.category?.level2 || '',
+          '信件三级分类': letter.category?.level3 || '',
+          '信件状态': statusName(letter.current_status),
           '来信时间': letter.received_at,
           '当前信件处理单位': letter.current_unit,
           '紧急程度': letter.urgency || '',
+          focus_id: letter.focus_id,
           _raw: letter,
         }
         dict[mapped['信件编号']] = mapped
@@ -1363,6 +1407,26 @@ const loadCategories = async () => {
     const res = await getCategories()
     if (res.success) {
       categoryTree.value = res.data || []
+      // Build category ID map: "level1/level2/level3" → id
+      const idMap = {}
+      const buildIdMap = (nodes, level1 = '', level2 = '') => {
+        for (const n of nodes) {
+          const hasChildren = n.children && n.children.length > 0
+          if (hasChildren) {
+            if (!level1) {
+              buildIdMap(n.children, n.name, '')
+            } else if (!level2) {
+              buildIdMap(n.children, level1, n.name)
+              // Level2 with no further children: "level1/level2" → id
+              if (n.id) idMap[[level1, n.name].join('/')] = n.id
+            }
+          } else {
+            if (n.id) idMap[[level1, level2, n.name].join('/')] = n.id
+          }
+        }
+      }
+      buildIdMap(res.data || [])
+      dispatchCategoryIdMap.value = idMap
       // 扁平化分类树，用于搜索下拉框
       const flat = []
       const flatten = (nodes, level1 = '', level2 = '') => {

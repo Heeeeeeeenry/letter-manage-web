@@ -36,12 +36,12 @@
             <tr v-for="item in items" :key="item.id" class="hover:bg-gray-50">
               <td class="text-gray-500 text-xs font-mono">{{ item.id }}</td>
               <td>
-                <span class="wp-badge wp-badge-purple">{{ item['专项关注标题'] || item.tag_name || item.title }}</span>
+                <span class="wp-badge wp-badge-purple">{{ item.name }}</span>
               </td>
               <td class="text-sm text-gray-600 max-w-0">
-                <span class="truncate block">{{ item['专项关注描述'] || item.description || '-' }}</span>
+                <span class="truncate block">{{ item.description || '-' }}</span>
               </td>
-              <td class="text-center text-sm text-gray-700">-</td>
+              <td class="text-center text-sm text-gray-700">{{ item.letter_count ?? '-' }}</td>
               <td class="text-xs text-gray-400 font-mono">{{ item.created_at ? formatTime(item.created_at) : '-' }}</td>
               <td class="text-center">
                 <div class="flex gap-1 justify-center">
@@ -110,7 +110,7 @@ const openCreateModal = () => {
 
 const openEditModal = (item) => {
   editingItem.value = item
-  form.value = { title: item['专项关注标题'] || item.tag_name || item.title || '', description: item['专项关注描述'] || item.description || '' }
+  form.value = { title: item.name || '', description: item.description || '' }
   showModal.value = true
 }
 

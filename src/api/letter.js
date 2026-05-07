@@ -62,3 +62,9 @@ export const getByIdcard = (idcard) =>
 
 export const updateAttachments = (args) =>
   http.post('/api/letter/', { order: 'update_attachments', args })
+
+export const setSpecialFocus = (args) =>
+  http.post('/api/letter/', { order: 'set_special_focus', args })
+
+export const getLetterSpecialFocus = (args) =>
+  http.post('/api/letter/', { order: 'get_letter_special_focus', args })

@@ -25,6 +25,7 @@ const routes = [
       { path: 'statistics', name: 'statistics', component: () => import('@/views/StatisticsView.vue') },
       { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue') },
       { path: 'organization', name: 'organization', component: () => import('@/views/OrganizationView.vue') },
+      { path: 'operation-logs', name: 'operation-logs', component: () => import('@/views/OperationLogsView.vue') },
       { path: 'special-focus', name: 'special-focus', component: () => import('@/views/SpecialFocusView.vue') },
       { path: 'category', name: 'category', component: () => import('@/views/CategoryView.vue') },
       { path: 'settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },

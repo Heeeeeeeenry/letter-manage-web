@@ -66,6 +66,10 @@
           <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="resetFilters">
             <i class="fas fa-undo-alt mr-1"></i>重置筛选
           </button>
+          <button class="wp-btn wp-btn-primary text-xs py-1.5 px-3" @click="handleExport" :disabled="exporting">
+            <i :class="exporting ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
+            {{ exporting ? '导出中...' : '导出Excel' }}
+          </button>
           <button class="wp-btn wp-btn-primary text-xs py-1.5 px-3" @click="doSearch">
             <i class="fas fa-search mr-1"></i>查询
           </button>
@@ -201,6 +205,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { getList, getCategories } from '@/api/letter'
 import { useUser } from '@/stores/user'
 import { channelName, statusName } from '@/utils/mappings'
@@ -208,15 +213,18 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import LetterDetailModal from '@/components/LetterDetailModal.vue'
 
 const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
+const route = useRoute()
 
 const letters = ref([])
 const totalCount = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
+const exporting = ref(false)
 const detailVisible = ref(false)
 const selectedLetterNo = ref('')
 const categoryData = ref({})
+const categoryIdMap = ref({})  // "level1/level2/level3" -> category_id
 const showAdvanced = ref(false)
 const viewMode = ref('unit')
 const filters = ref({
@@ -237,13 +245,18 @@ const filters = ref({
 const statusOptions = [
   { value: '', label: '全部' },
   { value: '预处理', label: '预处理' },
-  { value: '市局已签收', label: '市局已签收' },
-  { value: '区县局已签收', label: '区县局已签收' },
-  { value: '办理单位已签收', label: '办理单位已签收' },
-  { value: '市局处理中', label: '市局处理中' },
-  { value: '区县局处理中', label: '区县局处理中' },
-  { value: '办理单位处理中', label: '办理单位处理中' },
+  { value: '待区县局下发', label: '待区县局下发' },
+  { value: '已下发至分县局/支队', label: '已下发至分县局/支队' },
+  { value: '市局越级下发', label: '市局越级下发' },
+  { value: '已下发至处理单位', label: '已下发至处理单位' },
+  { value: '处理中', label: '处理中' },
+  { value: '待核查', label: '待核查' },
+  { value: '待分县局/支队审核', label: '待分县局/支队审核' },
+  { value: '待市局审核', label: '待市局审核' },
   { value: '已办结', label: '已办结' },
+  { value: '无效', label: '无效' },
+  { value: '已退回', label: '已退回' },
+  { value: '已延期', label: '已延期' },
 ]
 
 const fieldOptions = [
@@ -353,9 +366,12 @@ const loadLetters = async () => {
       order_by: 'received_at',
       order_desc: true,
     }
-    if (filters.value.level1) args.category_l1 = filters.value.level1
-    if (filters.value.level2) args.category_l2 = filters.value.level2
-    if (filters.value.level3) args.category_l3 = filters.value.level3
+    if (filters.value.level1) {
+      // Look up category_id from the level names
+      const lookupKey = [filters.value.level1, filters.value.level2, filters.value.level3]
+        .filter(Boolean).join('/')
+      args.category_id = categoryIdMap.value[lookupKey] || 0
+    }
     if (filters.value.status) args.status = filters.value.status
     if (filters.value.keyword) args.keyword = filters.value.keyword
     if (filters.value.letter_no) args.letter_no = filters.value.letter_no
@@ -387,6 +403,10 @@ const loadLetters = async () => {
         '来源渠道': channelName(letter.channel),
         '信件状态': statusName(letter.current_status),
         '来信时间': letter.received_at,
+        '信件一级分类': letter.category?.level1 || '',
+        '信件二级分类': letter.category?.level2 || '',
+        '信件三级分类': letter.category?.level3 || '',
+        '信件ID': letter.id,
         // Include original object for debugging
         _raw: letter
       }))
@@ -407,21 +427,34 @@ const loadCategories = async () => {
     const res = await getCategories()
     console.log('categories res', res)
     if (res.success) {
-      // Transform nested array to hierarchical object
+      // Transform nested array to hierarchical object + ID map
       const transformed = {}
+      const idMap = {}
       const data = res.data || []
       for (const level1 of data) {
         const level1Name = level1.name
         const level2Map = {}
         for (const level2 of level1.children || []) {
           const level2Name = level2.name
-          const level3Names = (level2.children || []).map(item => item.name)
-          level2Map[level2Name] = level3Names
+          const l3Items = (level2.children || []).map(item => {
+            // Build category_id lookup: "level1/level2/level3" -> id
+            const key = [level1Name, level2Name, item.name].join('/')
+            if (item.id) idMap[key] = item.id
+            return item.name
+          })
+          level2Map[level2Name] = l3Items
+          // Also map level2-only (no level3): "level1/level2" -> id
+          if (level2.id) {
+            const key2 = [level1Name, level2Name].join('/')
+            idMap[key2] = level2.id
+          }
         }
         transformed[level1Name] = level2Map
       }
       console.log('transformed categories', transformed)
+      console.log('category ID map', idMap)
       categoryData.value = transformed
+      categoryIdMap.value = idMap
     }
   } catch (err) {
     console.error('loadCategories error:', err)
@@ -448,6 +481,51 @@ const viewDetail = (letterNo) => {
   window.debugSelectedLetterNo = selectedLetterNo.value
 }
 
+const handleExport = async () => {
+  exporting.value = true
+  try {
+    const filterArgs = {}
+    // Pass all current filters
+    if (filters.value.status) filterArgs.status = filters.value.status
+    if (filters.value.keyword) filterArgs.keyword = filters.value.keyword
+    if (filters.value.letter_no) filterArgs.letter_no = filters.value.letter_no
+    if (filters.value.citizen_name) filterArgs.citizen_name = filters.value.citizen_name
+    if (filters.value.phone) filterArgs.phone = filters.value.phone
+    if (filters.value.id_card) filterArgs.id_card = filters.value.id_card
+    if (filters.value.start_time) filterArgs.start_time = filters.value.start_time
+    if (filters.value.end_time) filterArgs.end_time = filters.value.end_time
+    // Category filter
+    if (filters.value.level1) {
+      const lookupKey = [filters.value.level1, filters.value.level2, filters.value.level3]
+        .filter(Boolean).join('/')
+      filterArgs.category_id = categoryIdMap.value[lookupKey] || 0
+    }
+    // View mode
+    if (isOfficer()) {
+      filterArgs.view_mode = 'personal'
+    } else if (viewMode.value === 'personal') {
+      filterArgs.view_mode = 'personal'
+    }
+    const resp = await fetch('/api/letter/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: 'export', args: filterArgs })
+    })
+    if (!resp.ok) throw new Error('导出失败')
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `信件导出_${new Date().toISOString().slice(0,10)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('导出失败: ' + e.message)
+  }
+  exporting.value = false
+}
+
 onMounted(async () => {
   console.log('LettersView mounted')
   await loadUser()
@@ -455,9 +533,13 @@ onMounted(async () => {
   if (isOfficer()) {
     viewMode.value = 'personal'
   } else if (isDistrict()) {
-    viewMode.value = 'unit' // 区县局默认单位模式
+    viewMode.value = 'unit'
   } else {
-    viewMode.value = 'unit' // 市局默认所有信件
+    viewMode.value = 'unit'
+  }
+  // 从 URL 参数读取预设筛选条件
+  if (route.query.status) {
+    filters.value.status = route.query.status
   }
   await loadCategories()
   await loadLetters()

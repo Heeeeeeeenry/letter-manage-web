@@ -75,3 +75,6 @@ export const getDispatchUnits = () =>
 
 export const getUsersInUnit = (unitId) =>
   http.post('/api/setting/', { order: 'get_users_in_unit', args: { unit_id: unitId } })
+
+export const getOperationLogs = (args) =>
+  http.post('/api/setting/', { order: 'get_operation_logs', args })

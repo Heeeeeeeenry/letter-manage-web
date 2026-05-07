@@ -344,6 +344,9 @@ const loadData = async () => {
           '诉求内容': letter.content,
           '信件状态': statusName(letter.current_status),
           '来信时间': letter.received_at,
+          '信件一级分类': letter.category?.level1 || '',
+          '信件二级分类': letter.category?.level2 || '',
+          '信件三级分类': letter.category?.level3 || '',
           // Keep original object for debugging
           _raw: letter
         }

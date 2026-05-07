@@ -19,7 +19,11 @@
           @click="changePeriod(p.value)"
         >{{ p.label }}</button>
       </div>
-      <div class="ml-auto">
+      <div class="ml-auto flex items-center gap-3">
+        <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="handleExportMonthly" :disabled="exportingMonthly">
+          <i :class="exportingMonthly ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
+          {{ exportingMonthly ? '导出中...' : '导出' }}
+        </button>
         <div class="flex bg-gray-100 rounded-xl p-0.5 gap-0.5 shadow-sm" v-if="isDistrict() || isCity()">
           <button
             class="px-3 py-1.5 text-xs rounded-lg transition-all duration-150 font-medium"
@@ -35,7 +39,7 @@
       </div>
     </div>
     <div class="grid grid-cols-4 gap-4">
-      <div v-for="card in summaryCards" :key="card.key" class="wp-stat-card">
+      <div v-for="card in summaryCards" :key="card.key" class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters(card.key)">
         <div class="flex items-center justify-between mb-3">
           <div class="w-9 h-9 rounded-xl flex items-center justify-center" :style="{ background: card.bg }">
             <i :class="['fas', card.icon, card.color]"></i>
@@ -89,15 +93,24 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getStatistics } from '@/api/letter'
 import { useUser } from '@/stores/user'
 import * as echarts from 'echarts'
 
 const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
+const router = useRouter()
 
 const currentPeriod = ref('all')
 const statsData = ref({})
+
+const navToLetters = (status) => {
+  const query = {}
+  if (status && status !== '信件总量') query.status = status
+  router.push({ name: 'letters', query })
+}
 const viewMode = ref('unit')
+const exportingMonthly = ref(false)
 const pieChart = ref(null)
 const lineChart = ref(null)
 const barChart = ref(null)
@@ -218,6 +231,34 @@ const initCharts = (data) => {
     })
     charts.push(c)
   }
+}
+
+const handleExportMonthly = async () => {
+  exportingMonthly.value = true
+  try {
+    const period = currentPeriod.value
+    const now = new Date().toISOString().slice(0,10)
+    const downloadName = period === 'all'
+      ? `letters_export_${now}.xlsx`
+      : `report_${period}_${now}.zip`
+    const resp = await fetch('/api/letter/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: 'export_monthly_report', args: { period } })
+    })
+    if (!resp.ok) throw new Error('导出失败')
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = downloadName
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('导出失败: ' + e.message)
+  }
+  exportingMonthly.value = false
 }
 
 const loadData = async () => {
