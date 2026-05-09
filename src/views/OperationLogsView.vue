@@ -21,6 +21,7 @@
             <option value="">全部</option>
             <option v-for="t in targetOptions" :key="t" :value="t">{{ t }}</option>
           </select>
+          <span class="text-xs text-gray-400">对象ID</span>
           <input v-model="filters.target_id" class="wp-input text-xs" style="width:115px" placeholder="信件编号/警号" @keydown.enter="doSearch" />
           <span class="text-xs text-gray-400">操作</span>
           <select class="wp-select text-xs" style="width:88px" v-model="filters.action" @change="doSearch">
@@ -30,9 +31,9 @@
           <span class="text-xs text-gray-400">操作人</span>
           <input v-model="filters.user_name" class="wp-input text-xs" style="width:90px" placeholder="姓名" @keydown.enter="doSearch" />
           <span class="text-xs text-gray-400">时间</span>
-          <input type="date" v-model="filters.start_time" class="wp-input text-xs" style="width:118px" @change="doSearch" />
+          <input type="date" v-model="filters.start_time" class="text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400" style="width:118px" @change="doSearch" />
           <span class="text-xs text-gray-300">-</span>
-          <input type="date" v-model="filters.end_time" class="wp-input text-xs" style="width:118px" @change="doSearch" />
+          <input type="date" v-model="filters.end_time" class="text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400" style="width:118px" @change="doSearch" />
         </div>
         <div class="flex items-center gap-2 flex-shrink-0">
           <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="resetFilters">
