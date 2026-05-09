@@ -12,37 +12,26 @@
       </div>
     </div>
 
-    <!-- Filter panel: 单项筛选 + 重置/查询 同一行 -->
-    <div class="wp-panel p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-gray-500 whitespace-nowrap">对象：</span>
-          <select class="wp-select text-xs" style="width:120px" v-model="filters.target" @change="doSearch">
-            <option value="">全部</option>
-            <option v-for="t in targetOptions" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-gray-500 whitespace-nowrap">对象ID：</span>
-          <input v-model="filters.target_id" class="wp-input text-xs" style="width:130px" placeholder="编号/警号" @keydown.enter="doSearch" />
-        </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-gray-500 whitespace-nowrap">操作：</span>
-          <select class="wp-select text-xs" style="width:100px" v-model="filters.action" @change="doSearch">
-            <option value="">全部</option>
-            <option v-for="a in actionOptions" :key="a.value" :value="a.value">{{ a.label }}</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-gray-500 whitespace-nowrap">操作人：</span>
-          <input v-model="filters.user_name" class="wp-input text-xs" style="width:110px" placeholder="姓名/警号" @keydown.enter="doSearch" />
-        </div>
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-gray-500 whitespace-nowrap">时间：</span>
-          <input type="date" v-model="filters.start_time" class="wp-input text-xs" style="width:125px" @change="doSearch" />
-          <span class="text-xs text-gray-400">至</span>
-          <input type="date" v-model="filters.end_time" class="wp-input text-xs" style="width:125px" @change="doSearch" />
-        </div>
+    <!-- Filter panel -->
+    <div class="wp-panel px-4 py-3">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <span class="text-xs text-gray-400 whitespace-nowrap">对象</span>
+        <select class="wp-select text-xs" style="width:105px" v-model="filters.target" @change="doSearch">
+          <option value="">全部</option>
+          <option v-for="t in targetOptions" :key="t" :value="t">{{ t }}</option>
+        </select>
+        <input v-model="filters.target_id" class="wp-input text-xs" style="width:120px" placeholder="信件编号/警号" @keydown.enter="doSearch" />
+        <span class="text-xs text-gray-400 whitespace-nowrap">操作</span>
+        <select class="wp-select text-xs" style="width:90px" v-model="filters.action" @change="doSearch">
+          <option value="">全部</option>
+          <option v-for="a in actionOptions" :key="a.value" :value="a.value">{{ a.label }}</option>
+        </select>
+        <span class="text-xs text-gray-400 whitespace-nowrap">操作人</span>
+        <input v-model="filters.user_name" class="wp-input text-xs" style="width:100px" placeholder="姓名" @keydown.enter="doSearch" />
+        <span class="text-xs text-gray-400 whitespace-nowrap">时间</span>
+        <input type="date" v-model="filters.start_time" class="wp-input text-xs" style="width:120px" @change="doSearch" />
+        <span class="text-xs text-gray-400">-</span>
+        <input type="date" v-model="filters.end_time" class="wp-input text-xs" style="width:120px" @change="doSearch" />
         <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="resetFilters">
           <i class="fas fa-undo-alt mr-1"></i>重置
         </button>
@@ -145,9 +134,10 @@ const filters = reactive({
 })
 
 const targetOptions = [
+  '信函登记', '信函修改', '信件',
   '下发工作台', '处理工作台', '核查工作台',
   '分类管理', '组织管理', '用户管理',
-  '下发权限管理', '专项关注',
+  '下发权限管理', '专项关注', '信函管理',
 ]
 
 const actionOptions = [
