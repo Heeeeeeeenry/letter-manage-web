@@ -33,14 +33,16 @@
         <div class="wp-panel-header compact" style="padding: 12px 16px;">
           <!-- Row 1: Search + Filters -->
           <div class="flex items-center gap-3 mb-2">
-            <i class="fas fa-search text-gray-400 text-sm"></i>
-            <input
-              v-model="searchKeyword"
-              class="wp-input"
-              style="width: 200px;"
-              placeholder="搜索单位名称..."
-              @input="handleSearch"
-            />
+            <div class="relative">
+              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+              <input
+                v-model="searchKeyword"
+                class="wp-input pl-8"
+                style="width: 200px;"
+                placeholder="搜索单位名称..."
+                @input="handleSearch"
+              />
+            </div>
             <div class="w-px h-6 bg-gray-300"></div>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600 whitespace-nowrap">一级单位：</span>
