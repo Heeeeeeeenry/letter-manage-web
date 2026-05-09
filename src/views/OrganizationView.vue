@@ -292,19 +292,24 @@
         <div class="space-y-4">
           <div>
             <label class="text-sm font-medium text-gray-700 mb-1 block">单位名称</label>
-            <select class="wp-input" v-model="dispatchForm.unit_name" :disabled="editingDispatch">
-              <option value="">请选择单位</option>
-              <option v-for="unit in availableUnits" :key="unit.id" :value="unit.name">{{ unit.name }}</option>
-            </select>
+            <SearchableSelect
+              v-model="dispatchForm.unit_name"
+              :options="unitOptions"
+              placeholder="请选择单位"
+              :disabled="!!editingDispatch"
+            />
           </div>
           <div>
             <label class="text-sm font-medium text-gray-700 mb-1 block">可下发范围</label>
             <div class="space-y-2">
               <div v-for="(scope, index) in dispatchForm.dispatch_scope" :key="index" class="flex gap-2">
-                <select class="wp-input flex-1" v-model="dispatchForm.dispatch_scope[index]">
-                  <option value="">请选择可下发单位</option>
-                  <option v-for="unit in availableUnits" :key="unit.id" :value="unit.name">{{ unit.name }}</option>
-                </select>
+                <div class="flex-1">
+                  <SearchableSelect
+                    v-model="dispatchForm.dispatch_scope[index]"
+                    :options="unitOptions"
+                    placeholder="请选择可下发单位"
+                  />
+                </div>
                 <button class="wp-btn wp-btn-danger text-xs py-1.5 px-2" @click="dispatchForm.dispatch_scope.splice(index, 1)">
                   <i class="fas fa-times"></i>
                 </button>
@@ -331,6 +336,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { getOrgList, createOrg, updateOrg, deleteOrg, getDispatchPermissions, createDispatchPermission, updateDispatchPermission, deleteDispatchPermission, getDispatchUnits } from '@/api/setting'
 import InfoRow from '@/components/InfoRow.vue'
 import OrgTreeNode from '@/components/OrgTreeNode.vue'
+import SearchableSelect from '@/components/SearchableSelect.vue'
 
 const orgs = ref([])
 const selectedOrg = ref(null)
@@ -600,6 +606,7 @@ const showDispatchModal = ref(false)
 const editingDispatch = ref(null)
 const dispatchForm = ref({ unit_name: '', dispatch_scope: [] })
 const availableUnits = ref([])
+const unitOptions = computed(() => availableUnits.value.map(u => ({ value: u.name, label: u.name })))
 
 const topLevelOrgs = computed(() => orgs.value.filter(o => !o.parent_id))
 const parentName = computed(() => {
