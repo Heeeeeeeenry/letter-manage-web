@@ -20,7 +20,7 @@
         >{{ p.label }}</button>
       </div>
       <select v-if="viewMode === 'unit' && !isOfficer()" class="wp-select" style="width:160px" v-model="selectedUnitId" @change="loadData">
-        <option value="">全部单位</option>
+        <option value="">全部地区</option>
         <option v-for="u in unitList" :key="u.id" :value="u.id">{{ u.name }}</option>
       </select>
       <div class="ml-auto flex items-center gap-3">
@@ -51,7 +51,7 @@
         </div>
         <div class="wp-stat-value text-2xl">{{ statsData[card.key] ?? '-' }}</div>
         <div class="wp-stat-label">{{ card.label }}</div>
-        <div class="text-xs text-gray-400 mt-1">环比 {{ comparisonText(card.key) }}</div>
+        <div class="text-xs mt-1" :class="comparisonClass(card.key)">环比 {{ comparisonText(card.key) }}</div>
       </div>
     </div>
 
@@ -308,10 +308,15 @@ const changePeriod = (p) => {
 
 const comparisonText = (key) => {
   const comp = statsData.value?.comparison?.[key]
-  if (!comp) return '-'
+  if (!comp || comp === '-') return '-'
   const arrow = comp.direction === 'up' ? '↑' : '↓'
-  const color = comp.direction === 'up' ? 'text-red-500' : 'text-green-500'
   return `${arrow} ${comp.pct}%`
+}
+
+const comparisonClass = (key) => {
+  const comp = statsData.value?.comparison?.[key]
+  if (!comp || comp === '-' || comp.direction === '-') return 'text-gray-400'
+  return comp.direction === 'up' ? 'text-red-500' : 'text-green-500'
 }
 
 const loadUnits = async () => {
