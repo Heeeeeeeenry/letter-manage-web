@@ -11,7 +11,7 @@
           <div class="text-xs text-gray-400 mt-0.5">以最快的速度核实情况，处理群众诉求</div>
         </div>
       </div>
-      <span class="wp-badge wp-badge-blue font-bold">{{ Object.keys(letters).length }} 封待处理</span>
+      <span class="wp-badge wp-badge-blue font-bold">{{ totalCount }} 封待处理</span>
     </div>
 
     <div class="flex gap-4 flex-1 overflow-hidden">
@@ -24,14 +24,14 @@
           </button>
         </div>
         <div class="wp-scroll">
-          <div v-if="loadingList && Object.keys(letters).length === 0" class="text-center py-8 text-gray-400">
+          <div v-if="loadingList && letters.length === 0" class="text-center py-8 text-gray-400">
             <i class="fas fa-spinner fa-spin"></i>
           </div>
-          <div v-else-if="Object.keys(letters).length === 0" class="text-center py-12 text-gray-400">
+          <div v-else-if="letters.length === 0" class="text-center py-12 text-gray-400">
             <i class="fas fa-check-circle text-green-400 text-3xl mb-2 block"></i>暂无待处理信件
           </div>
           <div
-            v-for="letter in Object.values(letters)"
+            v-for="letter in letters"
             :key="letter['信件编号']"
             class="wp-list-item"
             :class="{ active: selectedLetter?.['信件编号'] === letter['信件编号'] }"
@@ -48,6 +48,18 @@
               </div>
               <span class="text-xs text-gray-400">{{ formatTime(letter['来信时间']) }}</span>
             </div>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex items-center justify-between px-3 py-2 border-t border-gray-100 text-xs">
+          <span class="text-gray-400">共 {{ totalCount }} 条</span>
+          <div class="flex gap-1">
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage <= 1" @click="goPage(1)">首页</button>
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage <= 1" @click="goPage(currentPage - 1)">上一页</button>
+            <span class="px-2 py-1 text-gray-500">{{ currentPage }} / {{ totalPages }}</span>
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage >= totalPages" @click="goPage(currentPage + 1)">下一页</button>
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage >= totalPages" @click="goPage(totalPages)">末页</button>
           </div>
         </div>
       </div>
@@ -516,7 +528,11 @@ import { getProcessingList, getDetail, submitProcessing, returnLetter, markInval
 import { normalizeFlowRecords } from '@/utils/flow'
 import StatusBadge from '@/components/StatusBadge.vue'
 
-const letters = ref({})
+const letters = ref([])
+const totalCount = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const selectedLetter = ref(null)
 const loadingList = ref(false)
 const submitting = ref(false)
@@ -1073,37 +1089,38 @@ const scrollToHistoryLetter = (e) => {
 const loadData = async () => {
   loadingList.value = true
   try {
-    const res = await getProcessingList({})
+    const args = { page: currentPage.value, page_size: pageSize.value }
+    const res = await getProcessingList(args)
     if (res.success) {
-      const dict = {}
       const list = res.data?.list || res.data || []
-      list.forEach(letter => {
-        // Map backend fields (English) to frontend field names (Chinese)
-        const mapped = {
-          '信件编号': letter.letter_no,
-          '群众姓名': letter.citizen_name,
-          '手机号': letter.phone,
-          '身份证号': letter.id_card,
-          '诉求内容': letter.content,
-          '信件一级分类': letter.category?.level1 || '',
-          '信件二级分类': letter.category?.level2 || '',
-          '信件三级分类': letter.category?.level3 || '',
-          '信件状态': letter.current_status,
-          '来信时间': letter.received_at,
-          '当前信件处理单位': letter.current_unit,
-          '紧急程度': letter.urgency_level,
-          '截止时间': letter.deadline_at,
-          '来源': letter.source || letter.channel || '局长信箱',
-          '更新时间': letter.updated_at,
-          // Keep original object for debugging
-          _raw: letter
-        }
-        dict[mapped['信件编号']] = mapped
-      })
-      letters.value = dict
+      letters.value = list.map(letter => ({
+        '信件编号': letter.letter_no,
+        '群众姓名': letter.citizen_name,
+        '手机号': letter.phone,
+        '身份证号': letter.id_card,
+        '诉求内容': letter.content,
+        '信件一级分类': letter.category?.level1 || '',
+        '信件二级分类': letter.category?.level2 || '',
+        '信件三级分类': letter.category?.level3 || '',
+        '信件状态': letter.current_status,
+        '来信时间': letter.received_at,
+        '当前信件处理单位': letter.current_unit,
+        '紧急程度': letter.urgency_level,
+        '截止时间': letter.deadline_at,
+        '来源': letter.source || letter.channel || '局长信箱',
+        '更新时间': letter.updated_at,
+        _raw: letter
+      }))
+      totalCount.value = res.data?.total || 0
     }
   } catch {}
   loadingList.value = false
+}
+
+const goPage = (p) => {
+  if (p < 1 || p > totalPages.value) return
+  currentPage.value = p
+  loadData()
 }
 
 // ──── Scroll spy ────
