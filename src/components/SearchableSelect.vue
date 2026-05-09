@@ -6,10 +6,7 @@
     </div>
     <div v-if="open" class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden flex flex-col" style="max-height:300px">
       <div class="p-2 border-b border-gray-100">
-        <div class="relative">
-          <i class="fas fa-search absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
-          <input v-model="search" class="wp-input pl-7 text-sm w-full" placeholder="搜索..." @click.stop />
-        </div>
+        <input v-model="search" class="wp-input text-sm w-full" placeholder="搜索..." @click.stop />
       </div>
       <div class="overflow-y-auto flex-1">
         <div v-if="filteredOptions.length === 0" class="text-center py-4 text-gray-400 text-sm">未找到匹配项</div>
