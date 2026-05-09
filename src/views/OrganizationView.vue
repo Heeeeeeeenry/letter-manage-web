@@ -769,14 +769,21 @@ const handleSaveDispatch = async () => {
       unit_name: dispatchForm.value.unit_name,
       dispatch_scope: dispatchForm.value.dispatch_scope.filter(s => s.trim())
     }
+    let res
     if (editingDispatch.value) {
-      await updateDispatchPermission({ ...data, id: editingDispatch.value.id })
+      res = await updateDispatchPermission({ ...data, id: editingDispatch.value.id })
     } else {
-      await createDispatchPermission(data)
+      res = await createDispatchPermission(data)
+    }
+    if (res && !res.success) {
+      alert(res.error || res.message || '保存失败')
+      return
     }
     closeDispatchModal()
     loadDispatchPermissions()
-  } catch {}
+  } catch (e) {
+    alert('保存失败: ' + (e.message || '网络错误'))
+  }
   dispatchSubmitting.value = false
 }
 
