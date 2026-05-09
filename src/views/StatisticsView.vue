@@ -194,41 +194,52 @@ const initCharts = (data) => {
 
   // Bar chart - category
   if (barChart.value) {
-    const catData = data?.['分类统计'] || { categories: ['环境', '交通', '安全', '其他', '医疗'], values: [15, 22, 8, 30, 12] }
+    const catData = data?.['分类统计'] || {}
     const c = echarts.init(barChart.value)
-    c.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      grid: { left: '5%', right: '5%', top: '10%', bottom: '15%', containLabel: true },
-      xAxis: { type: 'category', data: catData.categories, axisLabel: { fontSize: 10, rotate: 20 } },
-      yAxis: { type: 'value', axisLabel: { fontSize: 11 } },
-      series: [{
-        type: 'bar',
-        data: catData.values,
-        itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] },
-      }],
-    })
+    if (catData.categories && catData.values && catData.categories.length > 0) {
+      c.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: '5%', right: '5%', top: '10%', bottom: '15%', containLabel: true },
+        xAxis: { type: 'category', data: catData.categories, axisLabel: { fontSize: 10, rotate: 20 } },
+        yAxis: { type: 'value', axisLabel: { fontSize: 11 } },
+        series: [{
+          type: 'bar',
+          data: catData.values,
+          itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] },
+        }],
+      })
+    } else {
+      c.setOption({
+        title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#999', fontSize: 14 } },
+        xAxis: { type: 'category', data: [] },
+        yAxis: { type: 'value' },
+        series: [],
+      })
+    }
     charts.push(c)
   }
 
   // Donut - source
   if (donutChart.value) {
-    const sourceData = data?.['来源分布'] || [
-      { name: '网络平台', value: 40 },
-      { name: '电话', value: 25 },
-      { name: '实体信箱', value: 20 },
-      { name: '其他', value: 15 },
-    ]
+    const sourceData = data?.['来源分布']
     const c = echarts.init(donutChart.value)
-    c.setOption({
-      tooltip: { trigger: 'item' },
-      color: ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6'],
-      series: [{
-        type: 'pie',
-        radius: ['50%', '70%'],
-        data: sourceData,
-        label: { fontSize: 11 },
-      }],
-    })
+    if (sourceData && sourceData.length > 0) {
+      c.setOption({
+        tooltip: { trigger: 'item' },
+        color: ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#8b5cf6', '#06b6d4'],
+        series: [{
+          type: 'pie',
+          radius: ['50%', '70%'],
+          data: sourceData,
+          label: { fontSize: 11 },
+        }],
+      })
+    } else {
+      c.setOption({
+        title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#999', fontSize: 14 } },
+        series: [{ type: 'pie', radius: ['50%', '70%'], data: [] }],
+      })
+    }
     charts.push(c)
   }
 }
