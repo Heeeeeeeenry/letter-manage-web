@@ -224,12 +224,19 @@
                 <td>{{ perm.id }}</td>
                 <td>{{ perm.unit_name }}</td>
                 <td>
-                  <div class="flex flex-wrap gap-1">
-                    <span v-for="scope in perm.dispatch_scope" :key="scope" class="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
-                      {{ scope }}
-                    </span>
-                  </div>
-                </td>
+                <div class="flex flex-wrap gap-1">
+                  <span v-for="scope in perm.dispatch_scope.slice(0, showAllScopes[perm.id] ? undefined : 3)" :key="scope" class="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                    {{ scope }}
+                  </span>
+                  <button
+                    v-if="perm.dispatch_scope.length > 3"
+                    class="text-xs text-blue-500 hover:text-blue-700 underline cursor-pointer"
+                    @click="showAllScopes[perm.id] = !showAllScopes[perm.id]"
+                  >
+                    {{ showAllScopes[perm.id] ? '收起' : `展开全部(${perm.dispatch_scope.length})` }}
+                  </button>
+                </div>
+              </td>
                 <td>
                   <div class="flex items-center gap-2 justify-center">
                     <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="openEditDispatchModal(perm)">
@@ -586,6 +593,7 @@ watch(activeTab, (newTab) => {
   }
 }, { immediate: true })
 const dispatchPermissions = ref([])
+const showAllScopes = ref({})
 const dispatchLoading = ref(false)
 const dispatchSubmitting = ref(false)
 const showDispatchModal = ref(false)
@@ -717,9 +725,23 @@ const loadDispatchPermissions = async () => {
   dispatchLoading.value = true
   try {
     const res = await getDispatchPermissions()
-    if (res.success) dispatchPermissions.value = res.data || []
+    if (res.success) {
+      dispatchPermissions.value = (res.data || []).map(p => ({
+        ...p,
+        dispatch_scope: parseScopeArray(p.dispatch_scope || p.can_dispatch_to)
+      }))
+    }
   } catch {}
   dispatchLoading.value = false
+}
+
+// Parse scope from JSON string or array
+const parseScopeArray = (val) => {
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [] } catch {}
+  }
+  return []
 }
 
 const loadAvailableUnits = async () => {
@@ -748,9 +770,10 @@ const openCreateDispatchModal = () => {
 
 const openEditDispatchModal = (perm) => {
   editingDispatch.value = perm
+  const scope = parseScopeArray(perm.dispatch_scope || perm.can_dispatch_to)
   dispatchForm.value = {
     unit_name: perm.unit_name,
-    dispatch_scope: [...perm.dispatch_scope]
+    dispatch_scope: scope.length > 0 ? [...scope] : ['']
   }
   loadAvailableUnits()
   showDispatchModal.value = true
