@@ -120,7 +120,11 @@
               <th>渠道</th>
               <th>分类</th>
               <th>状态</th>
-              <th>来信时间</th>
+              <th>来信时间
+                <button class="ml-1 hover:text-blue-500" :class="sortActive ? 'text-blue-500' : 'text-gray-400'" @click="toggleSort">
+                  <i class="fas" :class="sortDesc ? 'fa-sort-down' : 'fa-sort-up'"></i>
+                </button>
+              </th>
               <th>操作</th>
             </tr>
           </thead>
@@ -227,6 +231,8 @@ const categoryData = ref({})
 const categoryIdMap = ref({})  // "level1/level2/level3" -> category_id
 const showAdvanced = ref(false)
 const viewMode = ref('unit')
+const sortDesc = ref(true)  // 时间排序方向
+const sortActive = ref(false)  // 是否启用了手动时间排序
 const filters = ref({
   status: '',
   level1: '',
@@ -345,6 +351,17 @@ const doSearch = () => {
   loadLetters()
 }
 
+const toggleSort = () => {
+  if (sortActive.value) {
+    sortDesc.value = !sortDesc.value
+  } else {
+    sortActive.value = true
+    sortDesc.value = true
+  }
+  currentPage.value = 1
+  loadLetters()
+}
+
 const onPageSizeChange = () => {
   currentPage.value = 1
   loadLetters()
@@ -363,8 +380,8 @@ const loadLetters = async () => {
     const args = {
       page: currentPage.value,
       page_size: pageSize.value,
-      order_by: 'received_at',
-      order_desc: true,
+      order_by: sortActive.value ? 'received_at' : 'created_at',
+      order_desc: sortDesc.value,
     }
     if (filters.value.level1) {
       // Look up category_id from the level names
