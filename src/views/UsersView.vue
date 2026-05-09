@@ -11,8 +11,19 @@
       <div class="flex gap-3 items-center">
         <div class="relative">
           <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-          <input v-model="searchKeyword" class="wp-input pl-8" style="width:200px" placeholder="搜索用户..." @input="debounceSearch" />
+          <input v-model="searchKeyword" class="wp-input pl-8" style="width:200px" placeholder="搜索姓名/警号..." @input="debounceSearch" />
         </div>
+        <select v-model="filterPermLevel" class="wp-select" style="width:130px" @change="doSearch">
+          <option value="">全部级别</option>
+          <option value="CITY">市级</option>
+          <option value="DISTRICT">区级</option>
+          <option value="OFFICER">基层单位</option>
+        </select>
+        <select v-model="filterStatus" class="wp-select" style="width:110px" @change="doSearch">
+          <option value="">全部状态</option>
+          <option value="active">已激活</option>
+          <option value="disabled">已禁用</option>
+        </select>
         <button class="wp-btn wp-btn-primary" @click="openCreateModal">
           <i class="fas fa-plus"></i>新建用户
         </button>
@@ -249,6 +260,8 @@ const totalPages = ref(1)
 const loading = ref(false)
 const submitting = ref(false)
 const searchKeyword = ref('')
+const filterPermLevel = ref('')
+const filterStatus = ref('')
 const showModal = ref(false)
 const editingUser = ref(null)
 const units = ref([])
@@ -329,10 +342,18 @@ const getUnitFullName = (unitId) => {
   return unit ? unit.fullName : ''
 }
 
+const doSearch = () => {
+  page.value = 1
+  loadUsers()
+}
+
 const loadUsers = async () => {
   loading.value = true
   try {
-    const res = await getUserList({ page: page.value, limit: pageSize.value, keyword: searchKeyword.value })
+    const params = { page: page.value, limit: pageSize.value, keyword: searchKeyword.value }
+    if (filterPermLevel.value) params.perm_level = filterPermLevel.value
+    if (filterStatus.value) params.is_active = filterStatus.value === 'active'
+    const res = await getUserList(params)
     if (res.success) {
       users.value = res.data?.list || res.data || []
       totalCount.value = res.data?.total || res.total || 0

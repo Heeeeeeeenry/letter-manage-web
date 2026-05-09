@@ -30,16 +30,13 @@
     <div v-if="activeTab === 'units'" class="flex flex-col flex-1 overflow-hidden">
       <!-- Toolbar: Search + Filters + Button -->
       <div class="flex items-center gap-3 mb-4 flex-wrap">
-        <div class="relative">
-          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-          <input
-            v-model="searchKeyword"
-            class="wp-input pl-8"
-            style="width: 200px;"
-            placeholder="搜索单位名称..."
-            @input="handleSearch"
-          />
-        </div>
+        <input
+          v-model="searchKeyword"
+          class="wp-input"
+          style="width: 200px;"
+          placeholder="搜索单位名称..."
+          @input="handleSearch"
+        />
         <div class="flex items-center gap-1.5">
           <span class="text-sm text-gray-500 whitespace-nowrap">一级单位</span>
           <select v-model="filterLevel1" class="wp-select" style="width: 110px;" @change="handleFilter">
