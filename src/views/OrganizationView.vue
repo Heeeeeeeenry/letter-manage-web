@@ -225,15 +225,15 @@
                 <td>{{ perm.unit_name }}</td>
                 <td>
                 <div class="flex flex-wrap gap-1">
-                  <span v-for="scope in perm.dispatch_scope.slice(0, showAllScopes[perm.id] ? undefined : 3)" :key="scope" class="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
-                    {{ scope }}
+                  <span v-for="t in perm.targets.slice(0, showAllScopes[perm.unit_id] ? undefined : 3)" :key="t.id" class="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded">
+                    {{ t.name }}
                   </span>
                   <button
-                    v-if="perm.dispatch_scope.length > 3"
+                    v-if="perm.targets.length > 3"
                     class="text-xs text-blue-500 hover:text-blue-700 underline cursor-pointer"
-                    @click="showAllScopes[perm.id] = !showAllScopes[perm.id]"
+                    @click="showAllScopes[perm.unit_id] = !showAllScopes[perm.unit_id]"
                   >
-                    {{ showAllScopes[perm.id] ? '收起' : `展开全部(${perm.dispatch_scope.length})` }}
+                    {{ showAllScopes[perm.unit_id] ? '收起' : `展开全部(${perm.targets.length})` }}
                   </button>
                 </div>
               </td>
@@ -291,30 +291,30 @@
         </div>
         <div class="space-y-4">
           <div>
-            <label class="text-sm font-medium text-gray-700 mb-1 block">单位名称</label>
+            <label class="text-sm font-medium text-gray-700 mb-1 block">下发单位</label>
             <SearchableSelect
               v-model="dispatchForm.unit_name"
               :options="unitOptions"
               placeholder="请选择单位"
               :disabled="!!editingDispatch"
+              @update:modelValue="(v) => { if(!editingDispatch) { const u = availableUnits.find(x => x.name === v); dispatchForm.unit_id = u?.id || '' } }"
             />
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-700 mb-1 block">可下发范围</label>
+            <label class="text-sm font-medium text-gray-700 mb-1 block">可下发单位</label>
             <div class="space-y-2">
-              <div v-for="(scope, index) in dispatchForm.dispatch_scope" :key="index" class="flex gap-2">
+              <div v-for="(tid, index) in dispatchForm.target_unit_ids" :key="index" class="flex gap-2">
                 <div class="flex-1">
-                  <SearchableSelect
-                    v-model="dispatchForm.dispatch_scope[index]"
-                    :options="unitOptions"
-                    placeholder="请选择可下发单位"
-                  />
+                  <select class="wp-input" v-model="dispatchForm.target_unit_ids[index]">
+                    <option value="">请选择可下发单位</option>
+                    <option v-for="unit in availableUnits" :key="unit.id" :value="unit.id">{{ unit.name }}</option>
+                  </select>
                 </div>
-                <button class="wp-btn wp-btn-danger text-xs py-1.5 px-2" @click="dispatchForm.dispatch_scope.splice(index, 1)">
+                <button class="wp-btn wp-btn-danger text-xs py-1.5 px-2" @click="removeDispatchTarget(index)">
                   <i class="fas fa-times"></i>
                 </button>
               </div>
-              <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-2" @click="dispatchForm.dispatch_scope.push('')">
+              <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-2" @click="addDispatchTarget">
                 <i class="fas fa-plus mr-1"></i>添加可下发单位
               </button>
             </div>
@@ -627,7 +627,7 @@ const deleteSubmitting = ref(false)
 const dispatchSubmitting = ref(false)
 const showDispatchModal = ref(false)
 const editingDispatch = ref(null)
-const dispatchForm = ref({ unit_name: '', dispatch_scope: [] })
+const dispatchForm = ref({ unit_name: '', unit_id: '', target_unit_ids: [] })
 const availableUnits = ref([])
 const unitOptions = computed(() => availableUnits.value.map(u => ({ value: u.name, label: u.name })))
 
@@ -756,22 +756,20 @@ const loadDispatchPermissions = async () => {
   try {
     const res = await getDispatchPermissions()
     if (res.success) {
-      dispatchPermissions.value = (res.data || []).map(p => ({
-        ...p,
-        dispatch_scope: parseScopeArray(p.dispatch_scope || p.can_dispatch_to)
+      // New format: [{unit_id, unit_name, targets: [{id, target_unit_id, target_unit_name}]}]
+      const groups = res.data || []
+      // Map each group's targets with display names
+      dispatchPermissions.value = groups.map(g => ({
+        ...g,
+        targets: (g.targets || []).map(t => ({
+          id: t.id,
+          unit_id: t.target_unit_id,
+          name: t.target_unit_name || `单位#${t.target_unit_id}`
+        }))
       }))
     }
   } catch {}
   dispatchLoading.value = false
-}
-
-// Parse scope from JSON string or array
-const parseScopeArray = (val) => {
-  if (Array.isArray(val)) return val
-  if (typeof val === 'string') {
-    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [] } catch {}
-  }
-  return []
 }
 
 const loadAvailableUnits = async () => {
@@ -793,41 +791,45 @@ const loadAvailableUnits = async () => {
 
 const openCreateDispatchModal = () => {
   editingDispatch.value = null
-  dispatchForm.value = { unit_name: '', dispatch_scope: [] }
+  dispatchForm.value = { unit_name: '', unit_id: '', target_unit_ids: [] }
   loadAvailableUnits()
   showDispatchModal.value = true
 }
 
 const openEditDispatchModal = (perm) => {
   editingDispatch.value = perm
-  const scope = parseScopeArray(perm.dispatch_scope || perm.can_dispatch_to)
   dispatchForm.value = {
     unit_name: perm.unit_name,
-    dispatch_scope: scope.length > 0 ? [...scope] : ['']
+    unit_id: perm.unit_id,
+    target_unit_ids: (perm.targets || []).map(t => t.unit_id)
   }
   loadAvailableUnits()
   showDispatchModal.value = true
 }
 
+const addDispatchTarget = () => {
+  dispatchForm.value.target_unit_ids.push('')
+}
+
+const removeDispatchTarget = (index) => {
+  dispatchForm.value.target_unit_ids.splice(index, 1)
+}
+
 const closeDispatchModal = () => {
   showDispatchModal.value = false
   editingDispatch.value = null
-  dispatchForm.value = { unit_name: '', dispatch_scope: [] }
+  dispatchForm.value = { unit_name: '', unit_id: '', target_unit_ids: [] }
 }
 
 const handleSaveDispatch = async () => {
   dispatchSubmitting.value = true
   try {
+    const validIds = dispatchForm.value.target_unit_ids.filter(id => id !== '' && id != null)
     const data = {
-      unit_name: dispatchForm.value.unit_name,
-      dispatch_scope: dispatchForm.value.dispatch_scope.filter(s => s.trim())
+      dispatcher_unit_id: parseInt(dispatchForm.value.unit_id) || editingDispatch.value?.unit_id || 0,
+      target_unit_ids: validIds.map(id => parseInt(id))
     }
-    let res
-    if (editingDispatch.value) {
-      res = await updateDispatchPermission({ ...data, id: editingDispatch.value.id })
-    } else {
-      res = await createDispatchPermission(data)
-    }
+    const res = await updateDispatchPermission(data)
     if (res && !res.success) {
       alert(res.error || res.message || '保存失败')
       return
@@ -845,12 +847,23 @@ const handleDeleteDispatch = (perm) => {
   showDeleteDispatchModal.value = true
 }
 
+const handleDeleteTarget = async (targetId) => {
+  if (!confirm('确认删除该下发目标？')) return
+  try {
+    await deleteDispatchPermission({ id: targetId })
+    loadDispatchPermissions()
+  } catch {}
+}
+
 const confirmDeleteDispatch = async () => {
   const perm = deleteTargetPerm.value
   if (!perm) return
   deleteSubmitting.value = true
   try {
-    await deleteDispatchPermission({ id: perm.id })
+    // Delete all targets for this dispatcher
+    for (const t of perm.targets || []) {
+      await deleteDispatchPermission({ id: t.id })
+    }
     showDeleteDispatchModal.value = false
     deleteTargetPerm.value = null
     loadDispatchPermissions()
