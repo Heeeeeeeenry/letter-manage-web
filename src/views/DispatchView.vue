@@ -17,10 +17,10 @@
           <span class="wp-checkbox-label text-xs text-red-800 font-medium">自动下发</span>
         </label>
         <div class="wp-count-badge flex items-center gap-1 px-4 py-1.5 bg-blue-50 rounded-xl">
-          <span class="wp-count-value text-2xl font-extrabold text-blue-600">{{ Object.keys(letters).length }}</span>
+          <span class="wp-count-value text-2xl font-extrabold text-blue-600">{{ totalCount }}</span>
           <span class="wp-count-label text-xs text-gray-500">封待处理</span>
         </div>
-        <button class="bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5" @click="autoDispatchAll" :disabled="autoDispatchingAll || Object.keys(letters).length === 0">
+        <button class="bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5" @click="autoDispatchAll" :disabled="autoDispatchingAll || totalCount === 0">
           <i class="fas fa-robot" :class="{ 'fa-spin': autoDispatchingAll }"></i>
           {{ autoDispatchingAll ? '自动下发中...' : '全部自动下发' }}
         </button>
@@ -31,10 +31,10 @@
     <div class="dispatch-main-content flex-1 flex overflow-hidden gap-4">
       <!-- Left: letter list panel -->
       <div class="dispatch-letter-list-panel w-[280px] bg-white rounded-xl border border-gray-200 overflow-y-auto p-3" id="letter-list-panel">
-        <div v-if="loadingList && Object.keys(letters).length === 0" class="text-center py-8 text-gray-400 text-sm">
+        <div v-if="loadingList && letters.length === 0" class="text-center py-8 text-gray-400 text-sm">
           <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
         </div>
-        <div v-else-if="Object.keys(letters).length === 0" class="text-center py-12 text-gray-400">
+        <div v-else-if="letters.length === 0" class="text-center py-12 text-gray-400">
           <i class="fas fa-check-circle text-green-400 text-3xl mb-2 block"></i>
           <span class="text-sm">暂无待下发信件</span>
         </div>
@@ -53,6 +53,18 @@
           </div>
           <div v-if="letter['_ai_analyzed']" class="text-xs text-purple-500 mt-1">
             <i class="fas fa-robot mr-0.5"></i>已分析
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="flex items-center justify-between pt-2 mt-2 border-t border-gray-100 text-xs">
+          <span class="text-gray-400">共 {{ totalCount }} 条</span>
+          <div class="flex gap-1">
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage <= 1" @click="goPage(1)">首页</button>
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage <= 1" @click="goPage(currentPage - 1)">上一页</button>
+            <span class="px-2 py-1 text-gray-500">{{ currentPage }} / {{ totalPages }}</span>
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage >= totalPages" @click="goPage(currentPage + 1)">下一页</button>
+            <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage >= totalPages" @click="goPage(totalPages)">末页</button>
           </div>
         </div>
       </div>
@@ -469,7 +481,11 @@ const userStore = useUser()
 const isCityUser = computed(() => userStore.isCity())
 
 // State
-const letters = ref({})
+const letters = ref([])
+const totalCount = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const selectedLetter = ref(null)
 const loadingList = ref(false)
 const submitting = ref(false)
@@ -678,12 +694,8 @@ const flowRecords = computed(() => {
   return Array.isArray(raw) ? raw.map(normalizeFlowRecord) : []
 })
 
-// Sorted letters (newest first)
-const sortedLetters = computed(() => {
-  return Object.values(letters.value).sort((a, b) => {
-    return (b['来信时间'] || '').localeCompare(a['来信时间'] || '')
-  })
-})
+// Sorted letters — backend handles sorting (updated_at DESC)
+const sortedLetters = computed(() => letters.value)
 
 // Helpers
 const formatTime = (t) => {
@@ -1039,9 +1051,10 @@ const confirmDispatch = async () => {
     showDispatchModal.value = false
     selectedLetter.value = null
     await loadData()
-    // 如果信件仍在列表中（如仅被下发但仍在当前视图），重新选中
-    if (letters.value[letterNo]) {
-      await selectLetter(letters.value[letterNo])
+    // 如果信件仍在列表中，重新选中
+    const found = letters.value.find(l => l['信件编号'] === letterNo)
+    if (found) {
+      await selectLetter(found)
     }
   } catch (e) {
     console.error('dispatch failed:', e)
@@ -1371,33 +1384,36 @@ const loadDispatchPrompt = async () => {
 const loadData = async () => {
   loadingList.value = true
   try {
-    const res = await getDispatchList({})
+    const args = { page: currentPage.value, page_size: pageSize.value }
+    const res = await getDispatchList(args)
     if (res.success) {
-      const dict = {}
       const list = res.data?.list || res.data || []
-      list.forEach(letter => {
-        const mapped = {
-          '信件编号': letter.letter_no,
-          '群众姓名': letter.citizen_name,
-          '手机号': letter.phone,
-          '身份证号': letter.id_card,
-          '诉求内容': letter.content,
-          '信件一级分类': letter.category?.level1 || '',
-          '信件二级分类': letter.category?.level2 || '',
-          '信件三级分类': letter.category?.level3 || '',
-          '信件状态': statusName(letter.current_status),
-          '来信时间': letter.received_at,
-          '当前信件处理单位': letter.current_unit,
-          '紧急程度': letter.urgency || '',
-          focus_id: letter.focus_id,
-          _raw: letter,
-        }
-        dict[mapped['信件编号']] = mapped
-      })
-      letters.value = dict
+      letters.value = list.map(letter => ({
+        '信件编号': letter.letter_no,
+        '群众姓名': letter.citizen_name,
+        '手机号': letter.phone,
+        '身份证号': letter.id_card,
+        '诉求内容': letter.content,
+        '信件一级分类': letter.category?.level1 || '',
+        '信件二级分类': letter.category?.level2 || '',
+        '信件三级分类': letter.category?.level3 || '',
+        '信件状态': statusName(letter.current_status),
+        '来信时间': letter.received_at,
+        '当前信件处理单位': letter.current_unit,
+        '紧急程度': letter.urgency || '',
+        focus_id: letter.focus_id,
+        _raw: letter,
+      }))
+      totalCount.value = res.data?.total || 0
     }
   } catch {}
   loadingList.value = false
+}
+
+const goPage = (p) => {
+  if (p < 1 || p > totalPages.value) return
+  currentPage.value = p
+  loadData()
 }
 
 // Load categories
