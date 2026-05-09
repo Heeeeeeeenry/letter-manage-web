@@ -9,10 +9,7 @@
         </div>
       </div>
       <div class="flex gap-3 items-center">
-        <div class="relative">
-          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-          <input v-model="searchKeyword" class="wp-input pl-8" style="width:200px" placeholder="搜索姓名/警号..." @input="debounceSearch" />
-        </div>
+        <input v-model="searchKeyword" class="wp-input" style="width:200px" placeholder="搜索姓名/警号..." @input="debounceSearch" />
         <select v-model="filterPermLevel" class="wp-select" style="width:130px" @change="doSearch">
           <option value="">全部级别</option>
           <option value="CITY">市级</option>
@@ -24,6 +21,7 @@
           <option value="active">已激活</option>
           <option value="disabled">已禁用</option>
         </select>
+        <div class="flex-1"></div>
         <button class="wp-btn wp-btn-primary" @click="openCreateModal">
           <i class="fas fa-plus"></i>新建用户
         </button>
