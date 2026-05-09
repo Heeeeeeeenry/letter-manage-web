@@ -328,6 +328,26 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Dispatch Confirm Modal -->
+    <div v-if="showDeleteDispatchModal" class="wp-modal-overlay" @click.self="showDeleteDispatchModal = false">
+      <div class="wp-modal" style="max-width:400px">
+        <div class="flex items-center gap-2 mb-4">
+          <i class="fas fa-exclamation-triangle text-red-500"></i>
+          <span class="text-lg font-bold text-gray-800">删除下发权限</span>
+        </div>
+        <p class="text-sm text-gray-600 mb-4">
+          确认删除 <strong>{{ deleteTargetPerm?.unit_name }}</strong> 的下发权限？
+          <br>删除后该单位将无法下发信件。
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button class="wp-btn wp-btn-secondary" @click="showDeleteDispatchModal = false">取消</button>
+          <button class="wp-btn wp-btn-danger" :disabled="deleteSubmitting" @click="confirmDeleteDispatch">
+            <i v-if="deleteSubmitting" class="fas fa-spinner fa-spin mr-1"></i>确认删除
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -601,6 +621,9 @@ watch(activeTab, (newTab) => {
 const dispatchPermissions = ref([])
 const showAllScopes = ref({})
 const dispatchLoading = ref(false)
+const deleteTargetPerm = ref(null)
+const showDeleteDispatchModal = ref(false)
+const deleteSubmitting = ref(false)
 const dispatchSubmitting = ref(false)
 const showDispatchModal = ref(false)
 const editingDispatch = ref(null)
@@ -817,12 +840,22 @@ const handleSaveDispatch = async () => {
   dispatchSubmitting.value = false
 }
 
-const handleDeleteDispatch = async (perm) => {
-  if (!confirm(`确认删除 ${perm.unit_name} 的下发权限？`)) return
+const handleDeleteDispatch = (perm) => {
+  deleteTargetPerm.value = perm
+  showDeleteDispatchModal.value = true
+}
+
+const confirmDeleteDispatch = async () => {
+  const perm = deleteTargetPerm.value
+  if (!perm) return
+  deleteSubmitting.value = true
   try {
     await deleteDispatchPermission({ id: perm.id })
+    showDeleteDispatchModal.value = false
+    deleteTargetPerm.value = null
     loadDispatchPermissions()
   } catch {}
+  deleteSubmitting.value = false
 }
 
 
