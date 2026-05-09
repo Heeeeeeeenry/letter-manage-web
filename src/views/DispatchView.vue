@@ -1,63 +1,63 @@
 <template>
-  <div class="dispatch-container h-full flex flex-col">
+  <div class="h-full flex flex-col gap-4">
     <!-- Header -->
-    <div class="wp-header flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 rounded-xl border border-gray-200 mb-6 flex-shrink-0" id="dispatch-header">
-      <div class="wp-header-left flex items-center gap-3">
-        <div class="wp-header-icon w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-          <i class="fas fa-paper-plane text-yellow-600"></i>
+    <div class="wp-header">
+      <div class="flex items-center gap-3">
+        <div class="wp-panel-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">
+          <i class="fas fa-paper-plane text-blue-600"></i>
         </div>
-        <div class="wp-header-content flex flex-col gap-0.5">
-          <div class="wp-header-title text-lg font-bold text-gray-900">下发工作台</div>
-          <div class="wp-header-subtitle text-xs text-gray-400">将预处理信件下发至指定单位办理</div>
+        <div>
+          <div class="wp-panel-title">下发工作台</div>
+          <div class="text-xs text-gray-400 mt-0.5">将预处理信件下发至指定单位办理</div>
         </div>
       </div>
-      <div class="wp-header-right flex items-center gap-4">
-        <label class="wp-checkbox warning flex items-center gap-1.5 px-4 py-1.5 bg-red-50 rounded-xl cursor-pointer">
-          <input type="checkbox" class="checkbox-input w-3.5 h-3.5 accent-red-500" id="auto-dispatch-check" v-model="autoDispatchEnabled" />
-          <span class="wp-checkbox-label text-xs text-red-800 font-medium">自动下发</span>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 rounded-lg cursor-pointer text-xs">
+          <input type="checkbox" class="w-3.5 h-3.5 accent-red-500" v-model="autoDispatchEnabled" />
+          <span class="text-red-700 font-medium">自动下发</span>
         </label>
-        <div class="wp-count-badge flex items-center gap-1 px-4 py-1.5 bg-blue-50 rounded-xl">
-          <span class="wp-count-value text-2xl font-extrabold text-blue-600">{{ totalCount }}</span>
-          <span class="wp-count-label text-xs text-gray-500">封待处理</span>
-        </div>
-        <button class="bg-blue-500 text-white px-4 py-1.5 rounded-lg text-xs hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5" @click="autoDispatchAll" :disabled="autoDispatchingAll || totalCount === 0">
-          <i class="fas fa-robot" :class="{ 'fa-spin': autoDispatchingAll }"></i>
+        <span class="wp-badge wp-badge-blue font-bold">{{ totalCount }} 封待下发</span>
+        <button class="wp-btn wp-btn-primary text-xs py-1.5 px-3" @click="autoDispatchAll" :disabled="autoDispatchingAll || totalCount === 0">
+          <i class="fas fa-robot mr-1" :class="{ 'fa-spin': autoDispatchingAll }"></i>
           {{ autoDispatchingAll ? '自动下发中...' : '全部自动下发' }}
         </button>
       </div>
     </div>
 
-    <!-- Main content -->
-    <div class="dispatch-main-content flex-1 flex overflow-hidden gap-4">
-      <!-- Left: letter list panel -->
-      <div class="dispatch-letter-list-panel w-[280px] bg-white rounded-xl border border-gray-200 overflow-y-auto p-3" id="letter-list-panel">
-        <div v-if="loadingList && letters.length === 0" class="text-center py-8 text-gray-400 text-sm">
-          <i class="fas fa-spinner fa-spin mr-2"></i>加载中...
+    <div class="flex gap-4 flex-1 overflow-hidden">
+      <!-- Left -->
+      <div class="wp-panel flex flex-col" style="width:300px;flex-shrink:0">
+        <div class="wp-panel-header compact">
+          <span class="text-sm font-semibold">待下发信件</span>
+          <button class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="loadData">
+            <i class="fas fa-sync-alt" :class="{ 'fa-spin': loadingList }"></i>
+          </button>
         </div>
-        <div v-else-if="letters.length === 0" class="text-center py-12 text-gray-400">
-          <i class="fas fa-check-circle text-green-400 text-3xl mb-2 block"></i>
-          <span class="text-sm">暂无待下发信件</span>
-        </div>
-        <div
-          v-for="letter in sortedLetters"
-          :key="letter['信件编号']"
-          class="dispatch-list-item p-3.5 rounded-xl cursor-pointer border border-gray-200 mb-2.5 bg-white shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-colors"
-          :class="{ 'border-blue-200 bg-blue-50': selectedLetter?.['信件编号'] === letter['信件编号'] }"
-          @click="selectLetter(letter)"
-        >
-          <div class="dispatch-item-category text-xs text-blue-600 font-medium mb-1">{{ letter['信件三级分类'] || letter['信件二级分类'] || letter['信件一级分类'] || '未分类' }}</div>
-          <div class="dispatch-item-number text-xs font-mono text-gray-700 mb-1">{{ letter['信件编号'] }}</div>
-          <div class="dispatch-item-meta flex items-center gap-3 text-xs text-gray-400">
-            <span class="dispatch-item-citizen"><i class="fas fa-user mr-1"></i> {{ letter['群众姓名'] || '匿名' }}</span>
-            <span class="dispatch-item-time"><i class="far fa-clock mr-1"></i> {{ formatTime(letter['来信时间']) }}</span>
+        <div class="wp-scroll">
+          <div v-if="loadingList && letters.length === 0" class="text-center py-8 text-gray-400">
+            <i class="fas fa-spinner fa-spin"></i>
           </div>
-          <div v-if="letter['_ai_analyzed']" class="text-xs text-purple-500 mt-1">
-            <i class="fas fa-robot mr-0.5"></i>已分析
+          <div v-else-if="letters.length === 0" class="text-center py-12 text-gray-400">
+            <i class="fas fa-check-circle text-green-400 text-3xl mb-2 block"></i>暂无待下发信件
+          </div>
+          <div
+            v-for="letter in sortedLetters"
+            :key="letter['信件编号']"
+            class="wp-list-item"
+            :class="{ active: selectedLetter?.['信件编号'] === letter['信件编号'] }"
+            @click="selectLetter(letter)"
+          >
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs font-mono text-blue-600">{{ letter['信件编号'] }}</span>
+              <StatusBadge :status="letter['信件状态']" />
+            </div>
+            <div class="text-sm font-medium">{{ letter['群众姓名'] || '匿名' }}</div>
+            <div class="text-xs text-gray-500 truncate mt-1">{{ letter['诉求内容'] }}</div>
           </div>
         </div>
 
         <!-- Pagination -->
-        <div v-if="totalPages > 1" class="flex items-center justify-between pt-2 mt-2 border-t border-gray-100 text-xs">
+        <div v-if="totalPages > 1" class="flex items-center justify-between px-3 py-2 border-t border-gray-100 text-xs">
           <span class="text-gray-400">共 {{ totalCount }} 条</span>
           <div class="flex gap-1">
             <button class="px-2 py-1 rounded border border-gray-200 hover:bg-gray-100 disabled:opacity-30" :disabled="currentPage <= 1" @click="goPage(1)">首页</button>
@@ -69,8 +69,8 @@
         </div>
       </div>
 
-      <!-- Right: detail panel -->
-      <div class="dispatch-letter-detail-panel flex-1 flex flex-col overflow-hidden bg-white rounded-xl border border-gray-200" id="letter-detail-panel">
+      <!-- Right -->
+      <div class="wp-panel flex-1 flex flex-col overflow-hidden">
         <!-- No selection state -->
         <div v-if="!selectedLetter" class="flex-1 flex items-center justify-center text-gray-400">
           <div class="text-center">
