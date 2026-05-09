@@ -12,56 +12,43 @@
       </div>
     </div>
 
-    <!-- Filter panel -->
+    <!-- Filter panel: 单项筛选 + 重置/查询 同一行 -->
     <div class="wp-panel p-4">
-      <!-- Row 1: keyword + action buttons -->
-      <div class="flex items-center gap-3">
-        <i class="fas fa-search text-gray-400 text-sm flex-shrink-0"></i>
-        <input
-          v-model="filters.keyword"
-          class="wp-input flex-1 text-sm"
-          placeholder="关键词搜索（操作人/警号/详情...）"
-          @input="debounceSearch"
-          @keydown.enter="doSearch"
-        />
-        <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3 flex-shrink-0" @click="resetFilters">
-          <i class="fas fa-undo-alt mr-1"></i>重置
-        </button>
-        <button class="wp-btn wp-btn-primary text-xs py-1.5 px-3 flex-shrink-0" @click="doSearch">
-          <i class="fas fa-search mr-1"></i>查询
-        </button>
-      </div>
-
-      <!-- Row 2: exact filters -->
-      <div class="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-gray-100">
+      <div class="flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-gray-500 whitespace-nowrap">对象：</span>
-          <select class="wp-select text-xs" style="width:130px" v-model="filters.target" @change="doSearch">
+          <select class="wp-select text-xs" style="width:120px" v-model="filters.target" @change="doSearch">
             <option value="">全部</option>
             <option v-for="t in targetOptions" :key="t" :value="t">{{ t }}</option>
           </select>
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-gray-500 whitespace-nowrap">对象ID：</span>
-          <input v-model="filters.target_id" class="wp-input text-xs" style="width:140px" placeholder="编号/警号" @input="debounceSearch" @keydown.enter="doSearch" />
+          <input v-model="filters.target_id" class="wp-input text-xs" style="width:130px" placeholder="编号/警号" @keydown.enter="doSearch" />
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-gray-500 whitespace-nowrap">操作：</span>
-          <select class="wp-select text-xs" style="width:110px" v-model="filters.action" @change="doSearch">
+          <select class="wp-select text-xs" style="width:100px" v-model="filters.action" @change="doSearch">
             <option value="">全部</option>
             <option v-for="a in actionOptions" :key="a.value" :value="a.value">{{ a.label }}</option>
           </select>
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-gray-500 whitespace-nowrap">操作人：</span>
-          <input v-model="filters.user_name" class="wp-input text-xs" style="width:120px" placeholder="姓名/警号" @input="debounceSearch" @keydown.enter="doSearch" />
+          <input v-model="filters.user_name" class="wp-input text-xs" style="width:110px" placeholder="姓名/警号" @keydown.enter="doSearch" />
         </div>
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-gray-500 whitespace-nowrap">时间：</span>
-          <input type="date" v-model="filters.start_time" class="wp-input text-xs" style="width:130px" @change="doSearch" />
+          <input type="date" v-model="filters.start_time" class="wp-input text-xs" style="width:125px" @change="doSearch" />
           <span class="text-xs text-gray-400">至</span>
-          <input type="date" v-model="filters.end_time" class="wp-input text-xs" style="width:130px" @change="doSearch" />
+          <input type="date" v-model="filters.end_time" class="wp-input text-xs" style="width:125px" @change="doSearch" />
         </div>
+        <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="resetFilters">
+          <i class="fas fa-undo-alt mr-1"></i>重置
+        </button>
+        <button class="wp-btn wp-btn-primary text-xs py-1.5 px-3" @click="doSearch">
+          <i class="fas fa-search mr-1"></i>查询
+        </button>
       </div>
     </div>
 
@@ -147,10 +134,8 @@ const loading = ref(false)
 const page = ref(1)
 const pageSize = ref(20)
 const totalCount = ref(0)
-let debounceTimer = null
 
 const filters = reactive({
-  keyword: '',
   target: '',
   target_id: '',
   action: '',
@@ -247,7 +232,6 @@ const loadData = async () => {
   loading.value = true
   try {
     const args = { page: page.value, page_size: pageSize.value }
-    if (filters.keyword) args.keyword = filters.keyword
     if (filters.target) args.target = filters.target
     if (filters.target_id) args.target_id = filters.target_id
     if (filters.action) args.action = filters.action
@@ -263,18 +247,12 @@ const loadData = async () => {
   loading.value = false
 }
 
-const debounceSearch = () => {
-  clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(doSearch, 400)
-}
-
 const doSearch = () => {
   page.value = 1
   loadData()
 }
 
 const resetFilters = () => {
-  filters.keyword = ''
   filters.target = ''
   filters.target_id = ''
   filters.action = ''
