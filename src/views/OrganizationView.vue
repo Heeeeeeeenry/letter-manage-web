@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col gap-4 old-system">
+  <div class="h-full flex flex-col gap-4">
     <div class="wp-header">
       <div class="flex items-center gap-3">
         <div class="wp-panel-icon"><i class="fas fa-sitemap text-blue-600"></i></div>
@@ -28,69 +28,64 @@
 
     <!-- Unit Management -->
     <div v-if="activeTab === 'units'" class="flex flex-col flex-1 overflow-hidden">
-      <!-- Toolbar -->
-      <div class="wp-panel mb-4">
-        <div class="wp-panel-header compact" style="padding: 12px 16px;">
-          <!-- Row 1: Search + Filters -->
-          <div class="flex items-center gap-3 mb-2">
-            <div class="relative">
-              <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
-              <input
-                v-model="searchKeyword"
-                class="wp-input pl-8"
-                style="width: 200px;"
-                placeholder="搜索单位名称..."
-                @input="handleSearch"
-              />
-            </div>
-            <div class="w-px h-6 bg-gray-300"></div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-600 whitespace-nowrap">一级单位：</span>
-              <select v-model="filterLevel1" class="wp-select" style="width: 130px;" @change="handleFilter">
-                <option value="">全部</option>
-                <option v-for="level in level1Options" :key="level" :value="level">{{ level }}</option>
-              </select>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-600 whitespace-nowrap">二级单位：</span>
-              <select v-model="filterLevel2" class="wp-select" style="width: 130px;" @change="handleFilter">
-                <option value="">全部</option>
-                <option v-for="level in level2Options" :key="level" :value="level">{{ level }}</option>
-              </select>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-gray-600 whitespace-nowrap">三级单位：</span>
-              <select v-model="filterLevel3" class="wp-select" style="width: 130px;" @change="handleFilter">
-                <option value="">全部</option>
-                <option v-for="level in level3Options" :key="level" :value="level">{{ level }}</option>
-              </select>
-            </div>
-            <div class="flex-1"></div>
-            <button class="wp-btn wp-btn-primary" @click="openAddUnitModal">
-              <i class="fas fa-plus mr-2"></i>新增单位
-            </button>
-          </div>
-          <!-- Row 2: Tags showing active filters -->
-          <div class="flex items-center gap-2 text-xs text-gray-500" v-if="filterLevel1 || filterLevel2 || filterLevel3 || searchKeyword">
-            <span>已筛选：</span>
-            <span v-if="searchKeyword" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
-              <i class="fas fa-search text-2xs"></i>{{ searchKeyword }}
-              <button class="ml-1 hover:text-blue-900" @click="searchKeyword = ''; handleSearch()">&times;</button>
-            </span>
-            <span v-if="filterLevel1" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
-              一级：{{ filterLevel1 }}
-              <button class="ml-1 hover:text-blue-900" @click="filterLevel1 = ''; handleFilter()">&times;</button>
-            </span>
-            <span v-if="filterLevel2" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
-              二级：{{ filterLevel2 }}
-              <button class="ml-1 hover:text-blue-900" @click="filterLevel2 = ''; handleFilter()">&times;</button>
-            </span>
-            <span v-if="filterLevel3" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
-              三级：{{ filterLevel3 }}
-              <button class="ml-1 hover:text-blue-900" @click="filterLevel3 = ''; handleFilter()">&times;</button>
-            </span>
-          </div>
+      <!-- Toolbar: Search + Filters + Button -->
+      <div class="flex items-center gap-3 mb-4 flex-wrap">
+        <div class="relative">
+          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+          <input
+            v-model="searchKeyword"
+            class="wp-input pl-8"
+            style="width: 200px;"
+            placeholder="搜索单位名称..."
+            @input="handleSearch"
+          />
         </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm text-gray-500 whitespace-nowrap">一级单位</span>
+          <select v-model="filterLevel1" class="wp-select" style="width: 110px;" @change="handleFilter">
+            <option value="">全部</option>
+            <option v-for="level in level1Options" :key="level" :value="level">{{ level }}</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm text-gray-500 whitespace-nowrap">二级单位</span>
+          <select v-model="filterLevel2" class="wp-select" style="width: 110px;" @change="handleFilter">
+            <option value="">全部</option>
+            <option v-for="level in level2Options" :key="level" :value="level">{{ level }}</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-sm text-gray-500 whitespace-nowrap">三级单位</span>
+          <select v-model="filterLevel3" class="wp-select" style="width: 110px;" @change="handleFilter">
+            <option value="">全部</option>
+            <option v-for="level in level3Options" :key="level" :value="level">{{ level }}</option>
+          </select>
+        </div>
+        <div class="flex-1"></div>
+        <button class="wp-btn wp-btn-primary" @click="openAddUnitModal">
+          <i class="fas fa-plus mr-2"></i>新增单位
+        </button>
+      </div>
+
+      <!-- Active filter tags -->
+      <div v-if="filterLevel1 || filterLevel2 || filterLevel3 || searchKeyword" class="flex items-center gap-2 text-xs text-gray-500 mb-3">
+        <span>已筛选：</span>
+        <span v-if="searchKeyword" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+          <i class="fas fa-search text-2xs"></i>{{ searchKeyword }}
+          <button class="ml-1 hover:text-blue-900" @click="searchKeyword = ''; handleSearch()">&times;</button>
+        </span>
+        <span v-if="filterLevel1" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+          一级：{{ filterLevel1 }}
+          <button class="ml-1 hover:text-blue-900" @click="filterLevel1 = ''; handleFilter()">&times;</button>
+        </span>
+        <span v-if="filterLevel2" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+          二级：{{ filterLevel2 }}
+          <button class="ml-1 hover:text-blue-900" @click="filterLevel2 = ''; handleFilter()">&times;</button>
+        </span>
+        <span v-if="filterLevel3" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+          三级：{{ filterLevel3 }}
+          <button class="ml-1 hover:text-blue-900" @click="filterLevel3 = ''; handleFilter()">&times;</button>
+        </span>
       </div>
 
       <!-- Table -->
@@ -206,19 +201,18 @@
 
     <!-- Dispatch Permission Management -->
     <div v-if="activeTab === 'dispatch'" class="flex flex-col flex-1 overflow-hidden">
-      <div class="wp-panel flex-1">
-        <div class="wp-panel-header compact">
-          <span class="text-sm font-semibold">下发权限列表</span>
-          <div class="flex gap-2">
-            <button class="wp-btn wp-btn-secondary text-xs py-1 px-2" @click="loadDispatchPermissions">
-              <i class="fas fa-sync-alt" :class="{'fa-spin': dispatchLoading}"></i>
-            </button>
-            <button class="wp-btn wp-btn-primary text-xs py-1 px-2" @click="openCreateDispatchModal">
-              <i class="fas fa-plus"></i>新建权限
-            </button>
-          </div>
-        </div>
-        <div class="wp-scroll">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-sm font-semibold text-gray-700">下发权限列表</span>
+        <div class="flex-1"></div>
+        <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="loadDispatchPermissions">
+          <i class="fas fa-sync-alt" :class="{'fa-spin': dispatchLoading}"></i>
+        </button>
+        <button class="wp-btn wp-btn-primary text-xs py-1.5 px-3" @click="openCreateDispatchModal">
+          <i class="fas fa-plus mr-1"></i>新建权限
+        </button>
+      </div>
+      <div class="wp-panel flex-1 flex flex-col overflow-hidden">
+        <div class="wp-scroll flex-1">
           <table class="wp-table" v-if="dispatchPermissions.length">
             <thead>
               <tr>
