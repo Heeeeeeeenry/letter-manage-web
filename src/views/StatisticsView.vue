@@ -231,7 +231,7 @@ const initCharts = (data) => {
           type: 'pie',
           radius: ['50%', '70%'],
           data: sourceData,
-          label: { fontSize: 11 },
+          label: { fontSize: 11, formatter: '{b}: {d}%' },
         }],
       })
     } else {
