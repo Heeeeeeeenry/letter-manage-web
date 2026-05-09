@@ -33,29 +33,34 @@
         <div class="wp-panel-header compact" style="padding: 12px 16px;">
           <!-- Row 1: Search + Filters -->
           <div class="flex items-center gap-3 mb-2">
-            <div class="relative">
-              <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-              <input
-                v-model="searchKeyword"
-                class="wp-input pl-10"
-                style="width: 220px;"
-                placeholder="搜索单位名称..."
-                @input="handleSearch"
-              />
-            </div>
+            <i class="fas fa-search text-gray-400 text-sm"></i>
+            <input
+              v-model="searchKeyword"
+              class="wp-input"
+              style="width: 200px;"
+              placeholder="搜索单位名称..."
+              @input="handleSearch"
+            />
             <div class="w-px h-6 bg-gray-300"></div>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600 whitespace-nowrap">一级单位：</span>
-              <select v-model="filterLevel1" class="wp-select" style="width: 150px;" @change="handleFilter">
+              <select v-model="filterLevel1" class="wp-select" style="width: 130px;" @change="handleFilter">
                 <option value="">全部</option>
                 <option v-for="level in level1Options" :key="level" :value="level">{{ level }}</option>
               </select>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-600 whitespace-nowrap">二级单位：</span>
-              <select v-model="filterLevel2" class="wp-select" style="width: 150px;" @change="handleFilter">
+              <select v-model="filterLevel2" class="wp-select" style="width: 130px;" @change="handleFilter">
                 <option value="">全部</option>
                 <option v-for="level in level2Options" :key="level" :value="level">{{ level }}</option>
+              </select>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-gray-600 whitespace-nowrap">三级单位：</span>
+              <select v-model="filterLevel3" class="wp-select" style="width: 130px;" @change="handleFilter">
+                <option value="">全部</option>
+                <option v-for="level in level3Options" :key="level" :value="level">{{ level }}</option>
               </select>
             </div>
             <div class="flex-1"></div>
@@ -64,7 +69,7 @@
             </button>
           </div>
           <!-- Row 2: Tags showing active filters -->
-          <div class="flex items-center gap-2 text-xs text-gray-500" v-if="filterLevel1 || filterLevel2 || searchKeyword">
+          <div class="flex items-center gap-2 text-xs text-gray-500" v-if="filterLevel1 || filterLevel2 || filterLevel3 || searchKeyword">
             <span>已筛选：</span>
             <span v-if="searchKeyword" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
               <i class="fas fa-search text-2xs"></i>{{ searchKeyword }}
@@ -77,6 +82,10 @@
             <span v-if="filterLevel2" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
               二级：{{ filterLevel2 }}
               <button class="ml-1 hover:text-blue-900" @click="filterLevel2 = ''; handleFilter()">&times;</button>
+            </span>
+            <span v-if="filterLevel3" class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded">
+              三级：{{ filterLevel3 }}
+              <button class="ml-1 hover:text-blue-900" @click="filterLevel3 = ''; handleFilter()">&times;</button>
             </span>
           </div>
         </div>
@@ -336,6 +345,7 @@ const form = ref({ name: '', code: '' })
 const searchKeyword = ref('')
 const filterLevel1 = ref('')
 const filterLevel2 = ref('')
+const filterLevel3 = ref('')
 
 const currentPage = ref(1)
 const pageSize = ref(20)
@@ -377,6 +387,24 @@ const level2Options = computed(() => {
   pool.forEach(unit => {
     if (unit.level2 && unit.level2.trim()) {
       levels.add(unit.level2)
+    }
+  })
+  return Array.from(levels).sort()
+})
+
+// Dynamic level3 options — cascade based on selected level1 + level2
+const level3Options = computed(() => {
+  let pool = allUnits.value
+  if (filterLevel1.value) {
+    pool = pool.filter(u => u.level1 === filterLevel1.value)
+  }
+  if (filterLevel2.value) {
+    pool = pool.filter(u => u.level2 === filterLevel2.value)
+  }
+  const levels = new Set()
+  pool.forEach(unit => {
+    if (unit.level3 && unit.level3.trim()) {
+      levels.add(unit.level3)
     }
   })
   return Array.from(levels).sort()
@@ -437,6 +465,15 @@ const handleFilter = () => {
   currentPage.value = 1
   loadOrgs()
 }
+
+// Cascade reset: when level1 changes, clear level2 and level3; when level2 changes, clear level3
+watch(filterLevel1, () => {
+  filterLevel2.value = ''
+  filterLevel3.value = ''
+})
+watch(filterLevel2, () => {
+  filterLevel3.value = ''
+})
 const openAddUnitModal = () => {
   editingUnit.value = null
   unitForm.value = { 
@@ -617,7 +654,8 @@ const loadOrgs = async () => {
       page_size: pageSize.value,
       search_keyword: searchKeyword.value.trim(),
       filter_level1: filterLevel1.value,
-      filter_level2: filterLevel2.value
+      filter_level2: filterLevel2.value,
+      filter_level3: filterLevel3.value
     }
     console.log('loadOrgs params:', params)
     const res = await getOrgList(params)
