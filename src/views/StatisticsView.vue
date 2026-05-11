@@ -19,9 +19,9 @@
           @click="changePeriod(p.value)"
         >{{ p.label }}</button>
       </div>
-      <select v-if="viewMode === 'unit' && !isOfficer()" class="wp-select" style="width:160px" v-model="selectedUnitId" @change="loadData">
+      <select v-if="viewMode === 'unit' && !isOfficer()" class="wp-select" style="width:130px" v-model="selectedRegion" @change="loadData">
         <option value="">全部地区</option>
-        <option v-for="u in unitList" :key="u.id" :value="u.id">{{ u.name }}</option>
+        <option v-for="r in regionList" :key="r" :value="r">{{ r }}</option>
       </select>
       <div class="ml-auto flex items-center gap-3">
         <button class="wp-btn wp-btn-secondary text-xs py-1.5 px-3" @click="handleExportMonthly" :disabled="exportingMonthly">
@@ -107,7 +107,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getStatistics } from '@/api/letter'
-import { getOrgList } from '@/api/setting'
 import { useUser } from '@/stores/user'
 import * as echarts from 'echarts'
 
@@ -116,8 +115,8 @@ const router = useRouter()
 
 const currentPeriod = ref('all')
 const statsData = ref({})
-const selectedUnitId = ref('')
-const unitList = ref([])
+const selectedRegion = ref('')
+const regionList = ['桃城', '高新', '滨湖', '冀州', '枣强', '武邑', '深州', '武强', '饶阳', '安平', '故城', '景县', '阜城', '交管', '其他']
 
 const navToLetters = (status) => {
   const query = {}
@@ -299,8 +298,8 @@ const loadData = async () => {
     } else if (viewMode.value === 'personal') {
       args.view_mode = 'personal'
     }
-    if (selectedUnitId.value && viewMode.value === 'unit') {
-      args.unit_id = parseInt(selectedUnitId.value)
+    if (selectedRegion.value && viewMode.value === 'unit') {
+      args.region = selectedRegion.value
     }
     const res = await getStatistics(args)
     if (res.success) {
@@ -351,20 +350,6 @@ const comparisonTitle = (key) => {
   return `本期: ${curLabel}  上期: ${prevLabel}`
 }
 
-const loadUnits = async () => {
-  try {
-    const res = await getOrgList({ page_size: 500 })
-    if (res.success) {
-      const all = res.data?.list || res.data || []
-      // Deduplicate by Level2
-      const seen = new Set()
-      unitList.value = all
-        .filter(u => u.level2 && !seen.has(u.level1 + '/' + u.level2) && seen.add(u.level1 + '/' + u.level2))
-        .map(u => ({ id: u.id, name: u.level1 + ' / ' + u.level2 }))
-    }
-  } catch {}
-}
-
 const handleResize = () => charts.forEach(c => c.resize())
 
 onMounted(async () => {
@@ -376,7 +361,6 @@ onMounted(async () => {
   } else {
     viewMode.value = 'unit'
   }
-  await loadUnits()
   await loadData()
   window.addEventListener('resize', handleResize)
 })
