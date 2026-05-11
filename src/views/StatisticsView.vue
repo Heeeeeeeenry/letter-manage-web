@@ -42,7 +42,7 @@
         </div>
       </div>
     </div>
-    <div class="grid grid-cols-4 gap-4">
+    <div class="grid grid-cols-5 gap-4">
       <div v-for="card in summaryCards" :key="card.key" class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters(card.key)">
         <div class="flex items-center justify-between mb-3">
           <div class="w-9 h-9 rounded-xl flex items-center justify-center" :style="{ background: card.bg }">
@@ -138,7 +138,8 @@ const summaryCards = [
   { key: '信件总量', label: '信件总量', icon: 'fa-envelope', color: 'text-blue-600', bg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)' },
   { key: '预处理', label: '预处理', icon: 'fa-clock', color: 'text-yellow-600', bg: 'linear-gradient(135deg,#fef9c3,#fef08a)' },
   { key: '处理中', label: '处理中', icon: 'fa-spinner', color: 'text-green-600', bg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' },
-  { key: '待分县局/支队审核', label: '待分县局/支队审核', icon: 'fa-check-circle', color: 'text-purple-600', bg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' },
+  { key: '待分县局/支队审核', label: '待审核', icon: 'fa-comments', color: 'text-purple-600', bg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' },
+  { key: '已完成', label: '已办结', icon: 'fa-check-circle', color: 'text-pink-600', bg: 'linear-gradient(135deg,#fce7f3,#fbcfe8)' },
 ]
 
 const initCharts = (data) => {

@@ -51,7 +51,7 @@
     </div>
 
     <!-- Stat cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
       <div class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters('')">
         <div class="flex items-center justify-between mb-4">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">
@@ -105,6 +105,20 @@
         <div class="wp-stat-label">待分县局/支队审核</div>
         <div class="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
           <div class="wp-stat-progress-bar" :style="{ width: stats.total > 0 ? (stats.feedbacking / stats.total * 100) + '%' : '0%', background: '#8b5cf6' }"></div>
+        </div>
+      </div>
+
+      <div class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters('已完成')">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8)">
+            <i class="fas fa-check-circle text-pink-600"></i>
+          </div>
+          <span class="text-xs text-gray-400">已完成</span>
+        </div>
+        <div class="wp-stat-value">{{ stats.done ?? '-' }}</div>
+        <div class="wp-stat-label">已办结</div>
+        <div class="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
+          <div class="wp-stat-progress-bar" :style="{ width: stats.total > 0 ? (stats.done / stats.total * 100) + '%' : '0%', background: '#ec4899' }"></div>
         </div>
       </div>
     </div>
@@ -234,6 +248,7 @@ const loadStats = async () => {
         preprocessing: d['预处理'] || 0,
         processing: d['处理中'] || 0,
         feedbacking: d['待分县局/支队审核'] || 0,
+        done: d['已完成'] || 0,
       }
     }
   } catch {}
