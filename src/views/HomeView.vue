@@ -244,11 +244,11 @@ const loadStats = async () => {
     if (res.success) {
       const d = res.data || {}
       stats.value = {
-        total: d['信件总量'] || 0,
-        preprocessing: d['预处理'] || 0,
-        processing: d['处理中'] || 0,
-        feedbacking: d['待分县局/支队审核'] || 0,
-        done: d['已完成'] || 0,
+        total: d['total'] || 0,
+        preprocessing: d['preprocessing'] || 0,
+        processing: d['processing'] || 0,
+        feedbacking: d['pending_audit'] || 0,
+        done: d['done'] || 0,
       }
     }
   } catch {}

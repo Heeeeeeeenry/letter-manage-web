@@ -114,7 +114,10 @@ const unitList = ref([])
 
 const navToLetters = (status) => {
   const query = {}
-  if (status && status !== '信件总量') query.status = status
+  if (status && status !== 'total') {
+    const statusMap = { preprocessing: '预处理', processing: '处理中', done: '已完成', pending_audit: '待分县局/支队审核' }
+    query.status = statusMap[status] || status
+  }
   router.push({ name: 'letters', query })
 }
 const viewMode = ref('unit')
@@ -135,11 +138,11 @@ const periods = [
 ]
 
 const summaryCards = [
-  { key: '信件总量', label: '信件总量', icon: 'fa-envelope', color: 'text-blue-600', bg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)' },
-  { key: '预处理', label: '预处理', icon: 'fa-clock', color: 'text-yellow-600', bg: 'linear-gradient(135deg,#fef9c3,#fef08a)' },
-  { key: '处理中', label: '处理中', icon: 'fa-spinner', color: 'text-green-600', bg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' },
-  { key: '待分县局/支队审核', label: '待审核', icon: 'fa-comments', color: 'text-purple-600', bg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' },
-  { key: '已完成', label: '已办结', icon: 'fa-check-circle', color: 'text-pink-600', bg: 'linear-gradient(135deg,#fce7f3,#fbcfe8)' },
+  { key: 'total', label: '信件总量', icon: 'fa-envelope', color: 'text-blue-600', bg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)' },
+  { key: 'preprocessing', label: '预处理', icon: 'fa-clock', color: 'text-yellow-600', bg: 'linear-gradient(135deg,#fef9c3,#fef08a)' },
+  { key: 'processing', label: '处理中', icon: 'fa-spinner', color: 'text-green-600', bg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)' },
+  { key: 'pending_audit', label: '待审核', icon: 'fa-comments', color: 'text-purple-600', bg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)' },
+  { key: 'done', label: '已办结', icon: 'fa-check-circle', color: 'text-pink-600', bg: 'linear-gradient(135deg,#fce7f3,#fbcfe8)' },
 ]
 
 const initCharts = (data) => {
@@ -147,12 +150,12 @@ const initCharts = (data) => {
   charts.forEach(c => c.dispose())
   charts = []
 
-  const statusData = data?.['状态分布'] || [
-    { name: '预处理', value: data?.['预处理'] || 0 },
-    { name: '处理中', value: data?.['处理中'] || 0 },
-    { name: '待分县局/支队审核', value: data?.['待分县局/支队审核'] || 0 },
-    { name: '已完成', value: data?.['已完成'] || 0 },
-    { name: '已无效', value: data?.['已无效'] || 0 },
+  const statusData = data?.['status_distribution'] || [
+    { name: '预处理', value: data?.['preprocessing'] || 0 },
+    { name: '处理中', value: data?.['processing'] || 0 },
+    { name: '待审核', value: data?.['pending_audit'] || 0 },
+    { name: '已完成', value: data?.['done'] || 0 },
+    { name: '已无效', value: data?.['invalid'] || 0 },
   ]
 
   const colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#22c55e', '#ef4444']
@@ -176,7 +179,7 @@ const initCharts = (data) => {
 
   // Line chart - trend
   if (lineChart.value) {
-    const trendData = data?.['趋势'] || { dates: [], values: [] }
+    const trendData = data?.['trend'] || { dates: [], values: [] }
     const weekDayNames = ['周日','周一','周二','周三','周四','周五','周六']
     const labels = trendData.dates.map(d => {
       // 只有纯数字(且值在0-6)才转为星期名，日期如"04-10"不转换
@@ -203,7 +206,7 @@ const initCharts = (data) => {
 
   // Bar chart - category
   if (barChart.value) {
-    const catData = data?.['分类统计'] || {}
+    const catData = data?.['category_stats'] || {}
     const c = echarts.init(barChart.value)
     if (catData.categories && catData.values && catData.categories.length > 0) {
       c.setOption({
@@ -230,7 +233,7 @@ const initCharts = (data) => {
 
   // Donut - source
   if (donutChart.value) {
-    const sourceData = data?.['来源分布']
+    const sourceData = data?.['source_distribution']
     const c = echarts.init(donutChart.value)
     if (sourceData && sourceData.length > 0) {
       c.setOption({
