@@ -51,7 +51,11 @@
         </div>
         <div class="wp-stat-value text-2xl">{{ statsData[card.key] ?? '-' }}</div>
         <div class="wp-stat-label">{{ card.label }}</div>
-        <div class="text-xs mt-1" :class="comparisonClass(card.key)">环比 {{ comparisonText(card.key) }}</div>
+        <div
+          class="text-xs mt-1 cursor-help"
+          :class="comparisonClass(card.key)"
+          :title="comparisonTitle(card.key)"
+        >环比 {{ comparisonText(card.key) }}</div>
       </div>
     </div>
 
@@ -311,16 +315,31 @@ const changePeriod = (p) => {
 }
 
 const comparisonText = (key) => {
-  const comp = statsData.value?.comparison?.[key]
-  if (!comp || comp === '-') return '-'
-  const arrow = comp.direction === 'up' ? '↑' : '↓'
-  return `${arrow} ${comp.pct}%`
+  const cur = statsData.value?.[key]
+  const prev = statsData.value?.prev?.[key]
+  if (cur == null || prev == null || prev === 0) return '-'
+  const pct = Math.round((cur - prev) / prev * 100)
+  const arrow = pct > 0 ? '↑' : pct < 0 ? '↓' : '→'
+  return `${arrow} ${Math.abs(pct)}%`
 }
 
 const comparisonClass = (key) => {
-  const comp = statsData.value?.comparison?.[key]
-  if (!comp || comp === '-' || comp.direction === '-') return 'text-gray-400'
-  return comp.direction === 'up' ? 'text-red-500' : 'text-green-500'
+  const cur = statsData.value?.[key]
+  const prev = statsData.value?.prev?.[key]
+  if (cur == null || prev == null || prev === 0) return 'text-gray-400'
+  const pct = (cur - prev) / prev
+  if (pct > 0) return 'text-red-500'
+  if (pct < 0) return 'text-green-500'
+  return 'text-gray-400'
+}
+
+const comparisonTitle = (key) => {
+  const cur = statsData.value?.[key]
+  const prev = statsData.value?.prev?.[key]
+  if (cur == null && prev == null) return ''
+  const curLabel = cur != null ? cur : '-'
+  const prevLabel = prev != null ? prev : '-'
+  return `本期: ${curLabel}  上期: ${prevLabel}`
 }
 
 const loadUnits = async () => {
