@@ -320,16 +320,22 @@ const changePeriod = (p) => {
 const comparisonText = (key) => {
   const cur = statsData.value?.[key]
   const prev = statsData.value?.prev?.[key]
-  if (cur == null || prev == null || prev === 0) return '-'
+  if (cur == null || prev == null) return '-'
+  if (prev === 0) {
+    return cur > 0 ? '↑ 100%' : '→ 0%'
+  }
   const pct = Math.round((cur - prev) / prev * 100)
-  const arrow = pct > 0 ? '↑' : pct < 0 ? '↓' : '→'
+  if (pct === 0) return '→ 0%'
+  const arrow = pct > 0 ? '↑' : '↓'
   return `${arrow} ${Math.abs(pct)}%`
 }
 
 const comparisonClass = (key) => {
   const cur = statsData.value?.[key]
   const prev = statsData.value?.prev?.[key]
-  if (cur == null || prev == null || prev === 0) return 'text-gray-400'
+  if (cur == null || prev == null) return 'text-gray-400'
+  if (cur === 0 && prev === 0) return 'text-gray-400'
+  if (prev === 0) return 'text-red-500'
   const pct = (cur - prev) / prev
   if (pct > 0) return 'text-red-500'
   if (pct < 0) return 'text-green-500'
