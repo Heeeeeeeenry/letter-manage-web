@@ -43,7 +43,7 @@
       </div>
     </div>
     <div class="grid grid-cols-5 gap-4">
-      <div v-for="card in summaryCards" :key="card.key" class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow" @click="navToLetters(card.key)">
+      <div v-for="card in summaryCards" :key="card.key" class="wp-stat-card cursor-pointer hover:shadow-md transition-shadow overflow-visible" @click="navToLetters(card.key)">
         <div class="flex items-center justify-between mb-3">
           <div class="w-9 h-9 rounded-xl flex items-center justify-center" :style="{ background: card.bg }">
             <i :class="['fas', card.icon, card.color]"></i>
@@ -52,10 +52,13 @@
         <div class="wp-stat-value text-2xl">{{ statsData[card.key] ?? '-' }}</div>
         <div class="wp-stat-label">{{ card.label }}</div>
         <div
-          class="text-xs mt-1 cursor-help"
+          class="text-xs mt-1 cursor-help relative group"
           :class="comparisonClass(card.key)"
-          :title="comparisonTitle(card.key)"
-        >环比 {{ comparisonText(card.key) }}</div>
+        >环比 {{ comparisonText(card.key) }}
+          <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 text-xs bg-gray-800 text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            {{ comparisonTitle(card.key) }}
+          </span>
+        </div>
       </div>
     </div>
 
