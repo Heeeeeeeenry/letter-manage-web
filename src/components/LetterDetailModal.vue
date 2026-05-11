@@ -334,7 +334,7 @@ const load = async () => {
       // Build flat object with Chinese keys expected by the template
       letterData.value = {
         '信件编号': letter.letter_no || '',
-        '来信时间': letter.received_at || '',
+        '来信时间': letter.created_at || '',
         '群众姓名': letter.citizen_name || '',
         '手机号': letter.phone || '',
         '身份证号': letter.id_card || '',

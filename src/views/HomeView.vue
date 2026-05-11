@@ -271,7 +271,7 @@ const loadRecentLetters = async () => {
         '手机号': item.phone,
         '身份证号': item.id_card,
         '诉求内容': item.content,
-        '来信时间': item.received_at,
+        '来信时间': item.created_at,
         '来源渠道': channelName(item.channel),
         '信件状态': statusName(item.current_status),
         '更新时间': item.updated_at,

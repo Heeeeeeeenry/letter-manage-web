@@ -380,7 +380,7 @@ const loadLetters = async () => {
     const args = {
       page: currentPage.value,
       page_size: pageSize.value,
-      order_by: sortActive.value ? 'received_at' : 'created_at',
+      order_by: 'updated_at',
       order_desc: sortDesc.value,
     }
     if (filters.value.level1) {
@@ -419,7 +419,7 @@ const loadLetters = async () => {
         '手机号': letter.phone,
         '来源渠道': channelName(letter.channel),
         '信件状态': statusName(letter.current_status),
-        '来信时间': letter.received_at,
+        '来信时间': letter.created_at,
         '信件一级分类': letter.category?.level1 || '',
         '信件二级分类': letter.category?.level2 || '',
         '信件三级分类': letter.category?.level3 || '',
