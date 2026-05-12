@@ -33,7 +33,7 @@
     </div>
 
     <!-- Filter panel -->
-    <div class="wp-panel p-4" id="letters-filter-panel">
+    <div class="wp-panel p-4 !overflow-visible" id="letters-filter-panel">
       <div class="flex flex-col gap-3">
         <!-- Row 1: Quick filters -->
         <div class="flex flex-wrap items-center gap-3">
@@ -683,7 +683,7 @@ onUnmounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  z-index: 100;
+  z-index: 200;
   min-width: 180px;
   max-height: 260px;
   overflow-y: auto;
