@@ -37,11 +37,34 @@
       <div class="flex flex-col gap-3">
         <!-- Row 1: Quick filters -->
         <div class="flex flex-wrap items-center gap-3">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 relative">
             <span class="text-sm text-gray-600 whitespace-nowrap">状态：</span>
-            <select class="wp-select" style="width:160px" multiple v-model="filters.statusArr" @change="onStatusChange">
-              <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
-            </select>
+            <!-- 自定义多选下拉 -->
+            <div class="relative" @click.stop>
+              <div class="status-trigger" @click="showStatusDropdown = !showStatusDropdown">
+                <template v-if="filters.statusArr.length === 0">
+                  <span class="text-gray-400">全部</span>
+                </template>
+                <template v-else>
+                  <span v-for="(s, i) in filters.statusArr.slice(0, 3)" :key="s" class="status-tag" :class="statusTagClass(s)">{{ s }}</span>
+                  <span v-if="filters.statusArr.length > 3" class="text-xs text-gray-400 ml-1">+{{ filters.statusArr.length - 3 }}</span>
+                </template>
+                <i class="fas fa-chevron-down text-xs text-gray-400 ml-1"></i>
+              </div>
+              <div v-if="showStatusDropdown" class="status-dropdown">
+                <label v-for="s in statusOptions.filter(x => x.value)" :key="s.value" class="status-option" @click.stop>
+                  <input type="checkbox" :value="s.value" v-model="filters.statusArr" @change="onStatusChange" class="sr-only" />
+                  <span class="status-checkbox" :class="{ checked: filters.statusArr.includes(s.value) }">
+                    <i v-if="filters.statusArr.includes(s.value)" class="fas fa-check text-xs"></i>
+                  </span>
+                  <span class="status-label">{{ s.label }}</span>
+                </label>
+                <div class="status-dropdown-footer">
+                  <button class="text-xs text-blue-600" @click="filters.statusArr = []; onStatusChange()">清除</button>
+                  <button class="text-xs text-blue-600" @click="showStatusDropdown = false">确定</button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 whitespace-nowrap">分类：</span>
@@ -208,7 +231,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { getList, getCategories } from '@/api/letter'
 import { useUser } from '@/stores/user'
@@ -230,6 +253,7 @@ const selectedLetterNo = ref('')
 const categoryData = ref({})
 const categoryIdMap = ref({})  // "level1/level2/level3" -> category_id
 const showAdvanced = ref(false)
+const showStatusDropdown = ref(false)
 const viewMode = ref('unit')
 const sortDesc = ref(true)  // 时间排序方向
 const sortActive = ref(false)  // 是否启用了手动时间排序
@@ -352,6 +376,23 @@ const onStatusChange = () => {
   filters.value.status = filters.value.statusArr.filter(Boolean).join(',')
   currentPage.value = 1
   loadLetters()
+}
+
+const statusTagClass = (s) => {
+  // 匹配 StatusBadge 的颜色规则
+  if (s.includes('预处理') || s.includes('待')) return 'tag-yellow'
+  if (s.includes('处理中')) return 'tag-blue'
+  if (s.includes('完成') || s.includes('办结')) return 'tag-green'
+  if (s.includes('无效') || s.includes('退回')) return 'tag-red'
+  if (s.includes('审核') || s.includes('核查')) return 'tag-purple'
+  if (s.includes('下发')) return 'tag-orange'
+  return 'tag-gray'
+}
+
+const handleClickOutside = (e) => {
+  if (showStatusDropdown.value && !e.target.closest('.status-trigger') && !e.target.closest('.status-dropdown')) {
+    showStatusDropdown.value = false
+  }
 }
 
 const doSearch = () => {
@@ -577,6 +618,11 @@ onMounted(async () => {
   }
   await loadCategories()
   await loadLetters()
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -593,5 +639,102 @@ onMounted(async () => {
 }
 .adv-input {
   width: 100% !important;
+}
+
+/* 状态多选下拉 */
+.status-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 140px;
+  min-height: 34px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.status-trigger:hover { border-color: #6366f1; }
+
+.status-tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.tag-yellow { background: #fef3c7; color: #92400e; }
+.tag-blue   { background: #dbeafe; color: #1e40af; }
+.tag-green  { background: #dcfce7; color: #166534; }
+.tag-red    { background: #fee2e2; color: #991b1b; }
+.tag-purple { background: #ede9fe; color: #5b21b6; }
+.tag-orange { background: #ffedd5; color: #9a3412; }
+.tag-gray   { background: #f3f4f6; color: #374151; }
+
+.status-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  z-index: 100;
+  min-width: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.status-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.status-option:hover { background: #f8fafc; }
+
+.status-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.status-checkbox.checked {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+
+.status-label {
+  font-size: 13px;
+  color: #374151;
+}
+
+.status-dropdown-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 14px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>
