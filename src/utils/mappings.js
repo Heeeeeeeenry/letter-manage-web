@@ -7,6 +7,10 @@ export const CHANNEL_MAP = {
   5: '信件',
   6: '网络',
   7: '其他',
+  8: '12345热线',
+  9: '12389举报',
+  10: '网上信访',
+  11: '上级交办',
 }
 
 // Status code → Chinese name mapping
