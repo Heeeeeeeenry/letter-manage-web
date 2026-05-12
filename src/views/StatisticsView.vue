@@ -109,7 +109,6 @@ import { useRouter } from 'vue-router'
 import { getStatistics } from '@/api/letter'
 import { useUser } from '@/stores/user'
 
-alert('[STATS] StatisticsView component loaded')
 import * as echarts from 'echarts'
 
 const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
@@ -293,7 +292,6 @@ const handleExportMonthly = async () => {
 }
 
 const loadData = async () => {
-  console.log('[STATS] loadData called, period=' + currentPeriod.value)
   try {
     const args = { period: currentPeriod.value }
     if (isOfficer()) {
@@ -304,9 +302,7 @@ const loadData = async () => {
     if (selectedRegion.value && viewMode.value === 'unit') {
       args.region = selectedRegion.value
     }
-    console.log('[STATS] fetching with args=', JSON.stringify(args))
     const res = await getStatistics(args)
-    console.log('[STATS] response received, success=' + res.success)
     if (res.success) {
       statsData.value = res.data || {}
       initCharts(res.data)
@@ -318,7 +314,6 @@ const loadData = async () => {
 }
 
 const changePeriod = (p) => {
-  alert('[STATS] changePeriod: ' + p)
   currentPeriod.value = p
   loadData()
 }
