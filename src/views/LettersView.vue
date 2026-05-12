@@ -416,6 +416,16 @@ const doSearch = () => {
   loadLetters()
 }
 
+const resetFilters = () => {
+  filters.value = {
+    status: '', statusArr: [], level1: '', level2: '', level3: '',
+    keyword: '', letter_no: '', citizen_name: '', phone: '', id_card: '',
+    start_time: '', end_time: '', region: '',
+  }
+  currentPage.value = 1
+  loadLetters()
+}
+
 const toggleSort = () => {
   if (sortActive.value) {
     sortDesc.value = !sortDesc.value
