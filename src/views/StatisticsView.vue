@@ -125,6 +125,20 @@ const navToLetters = (status) => {
     const statusMap = { preprocessing: '预处理', processing: '处理中', done: '已完成', pending_audit: '待分县局/支队审核' }
     query.status = statusMap[status] || status
   }
+  // 携带当前统计时间范围
+  if (currentPeriod.value !== 'all') {
+    const now = new Date()
+    const fmt = (d) => d.toISOString().slice(0, 10)
+    const end = fmt(now)
+    let start = ''
+    switch (currentPeriod.value) {
+      case 'today': start = end; break
+      case 'week': { const d = new Date(now); d.setDate(d.getDate() - 7); start = fmt(d); break }
+      case 'month': { const d = new Date(now); d.setMonth(d.getMonth() - 1); start = fmt(d); break }
+      case 'year': { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); start = fmt(d); break }
+    }
+    if (start) { query.start_time = start; query.end_time = end }
+  }
   router.push({ name: 'letters', query })
 }
 const viewMode = ref('unit')

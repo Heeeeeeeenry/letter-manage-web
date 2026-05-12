@@ -558,6 +558,12 @@ onMounted(async () => {
   if (route.query.status) {
     filters.value.status = route.query.status
   }
+  if (route.query.start_time) {
+    filters.value.start_time = route.query.start_time
+  }
+  if (route.query.end_time) {
+    filters.value.end_time = route.query.end_time
+  }
   await loadCategories()
   await loadLetters()
 })
