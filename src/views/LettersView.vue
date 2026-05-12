@@ -67,6 +67,13 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600 whitespace-nowrap">地区：</span>
+            <select class="wp-select" style="width:110px" v-model="filters.region" @change="doSearch">
+              <option value="">全部地区</option>
+              <option v-for="r in regionList" :key="r" :value="r">{{ r }}</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 whitespace-nowrap">分类：</span>
             <select class="wp-select" style="width:120px" v-model="filters.level1" @change="onLevel1Change">
               <option value="">全部分类</option>
@@ -270,7 +277,10 @@ const filters = ref({
   id_card: '',
   start_time: '',
   end_time: '',
+  region: '',
 })
+
+const regionList = ['桃城', '高新', '滨湖', '冀州', '枣强', '武邑', '深州', '武强', '饶阳', '安平', '故城', '景县', '阜城', '交管', '其他']
 
 
 const statusOptions = [
@@ -452,6 +462,7 @@ const loadLetters = async () => {
     if (filters.value.id_card) args.id_card = filters.value.id_card
     if (filters.value.start_time) args.start_time = filters.value.start_time
     if (filters.value.end_time) args.end_time = filters.value.end_time
+    if (filters.value.region) args.region = filters.value.region
 
     // 权限数据隔离
     if (isOfficer()) {
@@ -626,6 +637,9 @@ onMounted(async () => {
   }
   if (route.query.end_time) {
     filters.value.end_time = route.query.end_time
+  }
+  if (route.query.region) {
+    filters.value.region = route.query.region
   }
   await loadCategories()
   await loadLetters()

@@ -155,6 +155,8 @@ const navToLetters = (status) => {
     }
     if (start) { query.start_time = start; query.end_time = end }
   }
+  // 透传地区筛选
+  if (selectedRegion.value) query.region = selectedRegion.value
   router.push({ name: 'letters', query })
 }
 const viewMode = ref('unit')
