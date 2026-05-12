@@ -39,7 +39,7 @@
         <div class="flex flex-wrap items-center gap-3">
           <div class="flex items-center gap-2">
             <span class="text-sm text-gray-600 whitespace-nowrap">状态：</span>
-            <select class="wp-select" style="width:120px" v-model="filters.status" @change="doSearch">
+            <select class="wp-select" style="width:160px" multiple v-model="filters.statusArr" @change="onStatusChange">
               <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
             </select>
           </div>
@@ -234,7 +234,8 @@ const viewMode = ref('unit')
 const sortDesc = ref(true)  // 时间排序方向
 const sortActive = ref(false)  // 是否启用了手动时间排序
 const filters = ref({
-  status: '',
+  status: '',   // API传参用的逗号分隔字符串
+  statusArr: [], // UI多选用的数组
   level1: '',
   level2: '',
   level3: '',
@@ -344,6 +345,13 @@ const onLevel3Change = () => {
 const debounceSearch = () => {
   clearTimeout(debounceTimer)
   debounceTimer = setTimeout(doSearch, 500)
+}
+
+const onStatusChange = () => {
+  // 将数组转为逗号分隔字符串传给API
+  filters.value.status = filters.value.statusArr.filter(Boolean).join(',')
+  currentPage.value = 1
+  loadLetters()
 }
 
 const doSearch = () => {
@@ -556,7 +564,10 @@ onMounted(async () => {
   }
   // 从 URL 参数读取预设筛选条件
   if (route.query.status) {
-    filters.value.status = route.query.status
+    const s = route.query.status
+    // 支持逗号分隔多状态，同时填充 statusArr 和 status
+    filters.value.status = s
+    filters.value.statusArr = s.split(',').map(x => x.trim()).filter(Boolean)
   }
   if (route.query.start_time) {
     filters.value.start_time = route.query.start_time

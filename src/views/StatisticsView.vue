@@ -121,9 +121,15 @@ const regionList = ['桃城', '高新', '滨湖', '冀州', '枣强', '武邑', 
 
 const navToLetters = (status) => {
   const query = {}
+  // 统计卡片到信件列表的多状态映射（与后端 GetStatistics 分组一致）
+  const cardStatusMap = {
+    preprocessing: '预处理',
+    processing: '已下发,处理中,越级下发,待核查,待市局审核',
+    pending_audit: '待分县局/支队审核,待核查,待市局审核',
+    done: '已完成',
+  }
   if (status && status !== 'total') {
-    const statusMap = { preprocessing: '预处理', processing: '处理中', done: '已完成', pending_audit: '待分县局/支队审核' }
-    query.status = statusMap[status] || status
+    query.status = cardStatusMap[status] || status
   }
   // 携带当前统计时间范围（与后端 GetStatistics 的 period 计算一致）
   if (currentPeriod.value !== 'all') {
