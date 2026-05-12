@@ -121,12 +121,22 @@ const regionList = ['桃城', '高新', '滨湖', '冀州', '枣强', '武邑', 
 
 const navToLetters = (status) => {
   const query = {}
-  // 统计卡片到信件列表的多状态映射（与后端 GetStatistics 分组一致）
-  const cardStatusMap = {
-    preprocessing: '预处理',
-    processing: '已下发,处理中,越级下发,待核查,待市局审核',
-    pending_audit: '待分县局/支队审核,待核查,待市局审核',
-    done: '已完成',
+  // 统计卡片到信件列表的多状态映射，与后端 GetStatistics 分组一致
+  // 前端 statusOptions 使用前端名称；后端通过 StatusNameToCode 识别
+  if (isCity()) {
+    var cardStatusMap = {
+      preprocessing: '预处理',
+      processing: '已下发至处理单位,处理中,市局越级下发,待核查,待区县局下发,已下发至分县局/支队,已退回,已延期',
+      pending_audit: '待分县局/支队审核,待市局审核',
+      done: '已办结',
+    }
+  } else {
+    var cardStatusMap = {
+      preprocessing: '预处理',
+      processing: '已下发至处理单位,处理中,市局越级下发,待市局审核,待区县局下发,已下发至分县局/支队,已退回,已延期',
+      pending_audit: '待分县局/支队审核,待核查',
+      done: '已办结',
+    }
   }
   if (status && status !== 'total') {
     query.status = cardStatusMap[status] || status
