@@ -125,17 +125,17 @@ const navToLetters = (status) => {
   // 前端 statusOptions 使用前端名称；后端通过 StatusNameToCode 识别
   if (isCity()) {
     var cardStatusMap = {
-      preprocessing: '预处理',
-      processing: '已下发至处理单位,处理中,市局越级下发,待核查,待区县局下发,已下发至分县局/支队,已退回,已延期',
-      pending_audit: '待分县局/支队审核,待市局审核',
-      done: '已办结',
+      preprocessing: '1',
+      processing: '5,6,4,7,2,3,12,13',
+      pending_audit: '8,9',
+      done: '10',
     }
   } else {
     var cardStatusMap = {
-      preprocessing: '预处理',
-      processing: '已下发至处理单位,处理中,市局越级下发,待市局审核,待区县局下发,已下发至分县局/支队,已退回,已延期',
-      pending_audit: '待分县局/支队审核,待核查',
-      done: '已办结',
+      preprocessing: '1',
+      processing: '5,6,4,9,2,3,12,13',
+      pending_audit: '8,7',
+      done: '10',
     }
   }
   if (status && status !== 'total') {

@@ -46,7 +46,7 @@
                   <span class="text-gray-400">全部</span>
                 </template>
                 <template v-else>
-                  <span v-for="(s, i) in filters.statusArr.slice(0, 3)" :key="s" class="status-tag" :class="statusTagClass(s)">{{ s }}</span>
+                  <span v-for="(s, i) in filters.statusArr.slice(0, 3)" :key="s" class="status-tag" :class="statusTagClass(s)">{{ statusLabel(s) }}</span>
                   <span v-if="filters.statusArr.length > 3" class="text-xs text-gray-400 ml-1">+{{ filters.statusArr.length - 3 }}</span>
                 </template>
                 <i class="fas fa-chevron-down text-xs text-gray-400 ml-1"></i>
@@ -275,19 +275,19 @@ const filters = ref({
 
 const statusOptions = [
   { value: '', label: '全部' },
-  { value: '预处理', label: '预处理' },
-  { value: '待区县局下发', label: '待区县局下发' },
-  { value: '已下发至分县局/支队', label: '已下发至分县局/支队' },
-  { value: '市局越级下发', label: '市局越级下发' },
-  { value: '已下发至处理单位', label: '已下发至处理单位' },
-  { value: '处理中', label: '处理中' },
-  { value: '待核查', label: '待核查' },
-  { value: '待分县局/支队审核', label: '待分县局/支队审核' },
-  { value: '待市局审核', label: '待市局审核' },
-  { value: '已办结', label: '已办结' },
-  { value: '无效', label: '无效' },
-  { value: '已退回', label: '已退回' },
-  { value: '已延期', label: '已延期' },
+  { value: '1', label: '预处理' },
+  { value: '2', label: '待区县局下发' },
+  { value: '3', label: '已下发至分县局/支队' },
+  { value: '4', label: '市局越级下发' },
+  { value: '5', label: '已下发至处理单位' },
+  { value: '6', label: '处理中' },
+  { value: '7', label: '待核查' },
+  { value: '8', label: '待分县局/支队审核' },
+  { value: '9', label: '待市局审核' },
+  { value: '10', label: '已办结' },
+  { value: '11', label: '无效' },
+  { value: '12', label: '已退回' },
+  { value: '13', label: '已延期' },
 ]
 
 const fieldOptions = [
@@ -378,14 +378,20 @@ const onStatusChange = () => {
   loadLetters()
 }
 
+const statusLabel = (code) => {
+  const opt = statusOptions.find(s => s.value === code)
+  return opt ? opt.label : code
+}
+
 const statusTagClass = (s) => {
-  // 匹配 StatusBadge 的颜色规则
-  if (s.includes('预处理') || s.includes('待')) return 'tag-yellow'
-  if (s.includes('处理中')) return 'tag-blue'
-  if (s.includes('完成') || s.includes('办结')) return 'tag-green'
-  if (s.includes('无效') || s.includes('退回')) return 'tag-red'
-  if (s.includes('审核') || s.includes('核查')) return 'tag-purple'
-  if (s.includes('下发')) return 'tag-orange'
+  // 先映射为中文标签再按颜色分类
+  const label = statusLabel(s)
+  if (label.includes('预处理') || label.includes('待')) return 'tag-yellow'
+  if (label.includes('处理中')) return 'tag-blue'
+  if (label.includes('完成') || label.includes('办结')) return 'tag-green'
+  if (label.includes('无效') || label.includes('退回')) return 'tag-red'
+  if (label.includes('审核') || label.includes('核查')) return 'tag-purple'
+  if (label.includes('下发')) return 'tag-orange'
   return 'tag-gray'
 }
 
@@ -605,10 +611,15 @@ onMounted(async () => {
   }
   // 从 URL 参数读取预设筛选条件
   if (route.query.status) {
-    const s = route.query.status
-    // 支持逗号分隔多状态，同时填充 statusArr 和 status
-    filters.value.status = s
-    filters.value.statusArr = s.split(',').map(x => x.trim()).filter(Boolean)
+    let s = route.query.status
+    // 兼容旧中文格式：转换为数字码
+    const parts = s.split(',').map(x => x.trim()).filter(Boolean)
+    const converted = parts.map(p => {
+      const opt = statusOptions.find(o => o.label === p)
+      return opt ? opt.value : p
+    })
+    filters.value.status = converted.join(',')
+    filters.value.statusArr = converted
   }
   if (route.query.start_time) {
     filters.value.start_time = route.query.start_time
