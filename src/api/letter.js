@@ -68,3 +68,44 @@ export const setSpecialFocus = (args) =>
 
 export const getLetterSpecialFocus = (args) =>
   http.post('/api/letter/', { order: 'get_letter_special_focus', args })
+
+export const transcribeAudio = (audio_url) =>
+  http.post('/api/tool/transcribe/', { audio_url })
+
+export const transcribeAudioStream = (audio_url, onChunk, onDone, onError) => {
+  const controller = new AbortController()
+  fetch('/api/tool/transcribe_stream/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audio_url }),
+    signal: controller.signal,
+  }).then(async (response) => {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      // SSE 消息以 \n\n 分隔（不是按行），避免 event/data 跨 chunk 丢失
+      const messages = buffer.split('\n\n')
+      buffer = messages.pop() // 保留不完整的最后一条消息
+      for (const msg of messages) {
+        const trimmed = msg.trim()
+        if (!trimmed) continue
+        // 从消息中提取 event 和 data 字段
+        const eventMatch = trimmed.match(/^event:\s*(.+)$/m)
+        const dataMatch = trimmed.match(/^data:\s*(.+)$/m)
+        if (!eventMatch || !dataMatch) continue
+        const event = eventMatch[1].trim()
+        const data = dataMatch[1].trim()
+        if (event === 'chunk') onChunk(data)
+        else if (event === 'done') onDone(data)
+        else if (event === 'error') onError(data)
+      }
+    }
+  }).catch(err => {
+    if (err.name !== 'AbortError') onError(err.message || '连接失败')
+  })
+  return controller
+}
