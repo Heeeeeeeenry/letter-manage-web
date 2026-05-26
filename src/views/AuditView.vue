@@ -340,14 +340,13 @@ const doTranscribe = (url) => {
   if (!transcripts[url]) transcripts[url] = ''
 
   activeStreamController = transcribeAudioStream(url,
-    // onChunk: 逐段追加（跳过状态提示，段落间用双换行分隔）
+    // onChunk: Gradio 发送累积全文，直接替换（不再追加）
     (chunk) => {
-      if (chunk === '🔊 正在转写...') return  // 跳过状态提示
-      transcripts[url] = transcripts[url] ? transcripts[url] + '\n\n' + chunk : chunk
+      transcripts[url] = chunk
     },
     // onDone: 完成
     (fullText) => {
-      transcripts[url] = fullText
+      if (fullText) transcripts[url] = fullText
       transcribing[url] = false
     },
     // onError
@@ -527,6 +526,11 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
   padding: 1px 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* 段落首行加间距 — SenseVoice 风格 */
+.transcribe-line.paragraph-start {
+  margin-top: 10px;
 }
 
 .transcribe-line .line-num {

@@ -128,9 +128,13 @@
                     </div>
                     <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
                       <div class="transcribe-lines">
-                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" :class="{ typing: transcribing[f.url] && idx === lineCache[f.url].length - 1 }">
+                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                          :class="{ 
+                            typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                            'paragraph-start': line.isParagraphStart 
+                          }">
                           <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
-                          <span class="line-text">{{ line }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                          <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
                         </div>
                         <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
                           <span class="line-num">01</span>
@@ -173,9 +177,13 @@
                     </div>
                     <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
                       <div class="transcribe-lines">
-                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" :class="{ typing: transcribing[f.url] && idx === lineCache[f.url].length - 1 }">
+                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                          :class="{ 
+                            typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                            'paragraph-start': line.isParagraphStart 
+                          }">
                           <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
-                          <span class="line-text">{{ line }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                          <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
                         </div>
                         <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
                           <span class="line-num">01</span>
@@ -218,9 +226,13 @@
                     </div>
                     <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
                       <div class="transcribe-lines">
-                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" :class="{ typing: transcribing[f.url] && idx === lineCache[f.url].length - 1 }">
+                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                          :class="{ 
+                            typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                            'paragraph-start': line.isParagraphStart 
+                          }">
                           <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
-                          <span class="line-text">{{ line }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                          <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
                         </div>
                         <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
                           <span class="line-num">01</span>
@@ -263,9 +275,13 @@
                     </div>
                     <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
                       <div class="transcribe-lines">
-                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" :class="{ typing: transcribing[f.url] && idx === lineCache[f.url].length - 1 }">
+                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                          :class="{ 
+                            typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                            'paragraph-start': line.isParagraphStart 
+                          }">
                           <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
-                          <span class="line-text">{{ line }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                          <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
                         </div>
                         <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
                           <span class="line-num">01</span>
@@ -303,9 +319,13 @@
                   </div>
                   <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
                     <div class="transcribe-lines">
-                      <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" :class="{ typing: transcribing[f.url] && idx === lineCache[f.url].length - 1 }">
+                      <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                        :class="{ 
+                          typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                          'paragraph-start': line.isParagraphStart 
+                        }">
                         <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
-                        <span class="line-text">{{ line }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                        <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
                       </div>
                       <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
                         <span class="line-num">01</span>
@@ -387,18 +407,25 @@ const transcripts = reactive({})
 const transcribing = reactive({})
 const transcribeErrors = reactive({})
 
-// SenseVoice 风格：按段落分行（双换行分隔）
+// SenseVoice 风格：按段落分行，返回 { text, isParagraphStart }
 const splitLines = (text) => {
-  if (!text) return ['']
+  if (!text) return [{ text: '', isParagraphStart: false }]
   const paragraphs = text.split(/\n\n+/)
   const lines = []
+  let isFirst = true
   for (const para of paragraphs) {
     const trimmed = para.trim()
     if (!trimmed) continue
     const sentences = trimmed.split(/(?<=[。！？])/g).filter(s => s.trim())
-    lines.push(...sentences)
+    for (let i = 0; i < sentences.length; i++) {
+      lines.push({
+        text: sentences[i],
+        isParagraphStart: !isFirst && i === 0
+      })
+    }
+    isFirst = false
   }
-  return lines.length ? lines : [text]
+  return lines.length ? lines : [{ text, isParagraphStart: false }]
 }
 
 const lineCache = reactive({})
@@ -415,10 +442,10 @@ const doTranscribe = (url) => {
   if (!transcripts[url]) transcripts[url] = ''
 
   transcribeAudioStream(url,
-    // onChunk: 逐段追加（每段是一个完整句子/段落，用双换行分隔）
-    (chunk) => { transcripts[url] = transcripts[url] ? transcripts[url] + '\n\n' + chunk : chunk },
+    // onChunk: Gradio 发送累积全文，直接替换
+    (chunk) => { transcripts[url] = chunk },
     (fullText) => {
-      transcripts[url] = fullText
+      if (fullText) transcripts[url] = fullText
       transcribing[url] = false
     },
     (err) => {
@@ -557,6 +584,11 @@ onMounted(load)
   padding: 1px 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* 段落首行加间距 — SenseVoice 风格 */
+.transcribe-line.paragraph-start {
+  margin-top: 10px;
 }
 
 .transcribe-line .line-num {
