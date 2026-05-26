@@ -93,12 +93,13 @@ export const transcribeAudioStream = (audio_url, onChunk, onDone, onError) => {
       for (const msg of messages) {
         const trimmed = msg.trim()
         if (!trimmed) continue
-        // 从消息中提取 event 和 data 字段
+        // 提取 event 字段
         const eventMatch = trimmed.match(/^event:\s*(.+)$/m)
-        const dataMatch = trimmed.match(/^data:\s*(.+)$/m)
-        if (!eventMatch || !dataMatch) continue
+        if (!eventMatch) continue
         const event = eventMatch[1].trim()
-        const data = dataMatch[1].trim()
+        // 提取所有 data 字段（支持多行），用 \n 拼接
+        const dataLines = trimmed.match(/^data:\s*(.*)$/gm)
+        const data = dataLines ? dataLines.map(l => l.replace(/^data:\s*/, '')).join('\n') : ''
         if (event === 'chunk') onChunk(data)
         else if (event === 'done') onDone(data)
         else if (event === 'error') onError(data)
