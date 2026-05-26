@@ -407,23 +407,20 @@ const transcripts = reactive({})
 const transcribing = reactive({})
 const transcribeErrors = reactive({})
 
-// SenseVoice 风格：按段落分行，返回 { text, isParagraphStart }
+// SenseVoice 风格：按换行分行，按句末标点切段落
 const splitLines = (text) => {
   if (!text) return [{ text: '', isParagraphStart: false }]
-  const paragraphs = text.split(/\n\n+/)
+  const rawLines = text.split(/\n+/).filter(s => s.trim())
+  if (rawLines.length === 0) return [{ text, isParagraphStart: false }]
+
   const lines = []
-  let isFirst = true
-  for (const para of paragraphs) {
-    const trimmed = para.trim()
-    if (!trimmed) continue
-    const sentences = trimmed.split(/(?<=[。！？])/g).filter(s => s.trim())
-    for (let i = 0; i < sentences.length; i++) {
-      lines.push({
-        text: sentences[i],
-        isParagraphStart: !isFirst && i === 0
-      })
-    }
-    isFirst = false
+  let prevEndsWithPunct = false
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i].trim()
+    if (!line) continue
+    const isParagraphStart = i > 0 && prevEndsWithPunct
+    lines.push({ text: line, isParagraphStart })
+    prevEndsWithPunct = /[。！？]$/.test(line)
   }
   return lines.length ? lines : [{ text, isParagraphStart: false }]
 }

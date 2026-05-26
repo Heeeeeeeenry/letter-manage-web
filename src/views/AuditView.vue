@@ -302,25 +302,21 @@ const transcripts = reactive({})
 const transcribing = reactive({})
 const transcribeErrors = reactive({})
 
-// SenseVoice 风格：按段落分行（双换行分隔），返回 { text, isParagraphStart }
+// SenseVoice 风格：按换行分行，按句末标点切段落
 const splitLines = (text) => {
   if (!text) return [{ text: '', isParagraphStart: false }]
-  // 先按双换行（段落）分割，再按单换行细分
-  const paragraphs = text.split(/\n\n+/)
+  const rawLines = text.split(/\n+/).filter(s => s.trim())
+  if (rawLines.length === 0) return [{ text, isParagraphStart: false }]
+
   const lines = []
-  let isFirst = true
-  for (const para of paragraphs) {
-    const trimmed = para.trim()
-    if (!trimmed) continue
-    // 段落内按句号、问号、感叹号分行（保持阅读节奏）
-    const sentences = trimmed.split(/(?<=[。！？])/g).filter(s => s.trim())
-    for (let i = 0; i < sentences.length; i++) {
-      lines.push({
-        text: sentences[i],
-        isParagraphStart: !isFirst && i === 0  // 新段落的第一句（非首段）
-      })
-    }
-    isFirst = false
+  let prevEndsWithPunct = false
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i].trim()
+    if (!line) continue
+    // 上一行以句号/问号/感叹号结尾 → 新段落
+    const isParagraphStart = i > 0 && prevEndsWithPunct
+    lines.push({ text: line, isParagraphStart })
+    prevEndsWithPunct = /[。！？]$/.test(line)
   }
   return lines.length ? lines : [{ text, isParagraphStart: false }]
 }
