@@ -181,6 +181,30 @@
               </template>
             </div>
 
+            <!-- Citizen Files section -->
+            <div v-if="fileGroups.citizen_files.length" class="mx-3 mt-2 p-2.5 rounded-lg border border-indigo-200 bg-indigo-50 flex-shrink-0">
+              <div class="flex items-center gap-2 mb-2">
+                <i class="fas fa-user-edit text-indigo-500"></i>
+                <span class="text-xs font-semibold text-indigo-700">市民附件</span>
+              </div>
+              <div class="space-y-2">
+                <div v-for="(f, i) in fileGroups.citizen_files" :key="i">
+                  <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewDispatchImage = f.url">
+                    <img :src="f.url" :alt="f.name" class="w-full max-h-36 object-cover" />
+                    <div class="text-xs text-gray-500 px-2 py-1 truncate">{{ f.name }}</div>
+                  </div>
+                  <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-2">
+                    <div class="text-xs text-gray-500 mb-1 truncate">{{ f.name }}</div>
+                    <audio controls :src="f.url" class="w-full" style="height:32px"></audio>
+                  </div>
+                  <a v-else :href="f.url" target="_blank"
+                    class="flex items-center gap-2 px-2 py-1.5 bg-white rounded-lg border border-gray-200 hover:border-indigo-400 hover:shadow-sm transition-all text-xs text-gray-700">
+                    <i class="fas fa-file text-indigo-400"></i>{{ f.name }}
+                  </a>
+                </div>
+              </div>
+            </div>
+
             <!-- dispatch-detail-middle -->
             <div class="dispatch-detail-middle flex flex-col flex-1" id="detail-middle">
               <div class="dispatch-ai-chat-messages flex-1 overflow-y-auto px-3 py-2 space-y-2" id="ai-chat-messages" ref="chatMessagesRef">
@@ -466,6 +490,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Image lightbox -->
+    <div v-if="previewDispatchImage" class="wp-modal-overlay" style="z-index:9999;position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center" @click="previewDispatchImage = null">
+      <div class="relative max-w-4xl max-h-[90vh] mx-4" @click.stop>
+        <button class="absolute -top-10 right-0 text-white text-2xl hover:text-gray-300" @click="previewDispatchImage = null">&times;</button>
+        <img :src="previewDispatchImage" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -494,10 +526,37 @@ const showRemarkModalWindow = ref(false)
 const autoDispatchEnabled = ref(false)
 let pollTimer = null
 
+// Files display
+const dispatchFiles = ref({})
+const parseFileArray = (val) => {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+  }
+  return []
+}
+const audioExts = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma', '.opus', '.webm']
+const isAudioFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return audioExts.some(ext => lower.endsWith(ext))
+}
+const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+const isImageFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return imageExts.some(ext => lower.endsWith(ext))
+}
+const fileGroups = computed(() => ({
+  citizen_files: parseFileArray(dispatchFiles.value.citizen_files),
+}))
+
 // AI state
 const aiAnalyzing = ref(false)
 const aiResult = ref(null)
 const autoDispatchingAll = ref(false)
+const previewDispatchImage = ref(null)
 const autoDispatchProgress = ref({ current: 0, total: 0 })
 const autoDispatchLogs = ref([])
 
@@ -784,6 +843,8 @@ const selectLetter = async (letter) => {
       const raw = res.data.letter || res.data
       const flow = res.data.flow?.flow_records || res.data.flow_records || []
       letter._raw = { ...(letter._raw || {}), ...raw, flow_records: flow }
+      // Store files for attachment display
+      dispatchFiles.value = res.data.files || {}
     }
   } catch {}
 

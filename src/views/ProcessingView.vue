@@ -271,6 +271,31 @@
                 </div>
               </div>
 
+              <!-- 市民附件 Section -->
+              <div v-if="fileGroups.citizen_files.length" id="section-citizen-files" class="tab-section">
+                <div class="section-header">
+                  <i class="fas fa-user-edit" style="color:#6366f1"></i> 市民附件
+                </div>
+                <div class="tab-body">
+                  <div class="space-y-3">
+                    <div v-for="(f, i) in fileGroups.citizen_files" :key="i">
+                      <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewProcessingImage = f.url">
+                        <img :src="f.url" :alt="f.name" class="w-full max-h-48 object-cover" />
+                        <div class="text-xs text-gray-500 px-3 py-1.5 truncate">{{ f.name }}</div>
+                      </div>
+                      <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-3">
+                        <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
+                        <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                      </div>
+                      <a v-else :href="f.url" target="_blank"
+                        class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-indigo-400 hover:shadow-sm transition-all text-sm text-gray-700">
+                        <i class="fas fa-file text-indigo-400"></i>{{ f.name }}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- 信件处理 Section -->
               <div id="section-handle" class="tab-section" ref="sectionHandleRef">
                 <!-- <div class="section-header">
@@ -493,6 +518,14 @@
     </div>
   </div>
 
+  <!-- Image lightbox -->
+  <div v-if="previewProcessingImage" class="wp-modal-overlay" style="z-index:9999;position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center" @click="previewProcessingImage = null">
+    <div class="relative max-w-4xl max-h-[90vh] mx-4" @click.stop>
+      <button class="absolute -top-10 right-0 text-white text-2xl hover:text-gray-300" @click="previewProcessingImage = null">&times;</button>
+      <img :src="previewProcessingImage" class="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain" />
+    </div>
+  </div>
+
   <!-- Remark modal -->
   <div class="modal-overlay" id="remark-modal" :style="{ display: showRemarkModal ? 'flex' : 'none' }" @click.self="showRemarkModal = false">
     <div class="modal-container remark-modal-container">
@@ -577,6 +610,33 @@ const aiAnalyzing = ref(false)
 const aiResult = ref(null)
 
 let pollTimer = null
+
+// Files display
+const processingFiles = ref({})
+const parseFileArray = (val) => {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : [] } catch { return [] }
+  }
+  return []
+}
+const audioExts = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma', '.opus', '.webm']
+const isAudioFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return audioExts.some(ext => lower.endsWith(ext))
+}
+const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
+const isImageFile = (name) => {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return imageExts.some(ext => lower.endsWith(ext))
+}
+const fileGroups = computed(() => ({
+  citizen_files: parseFileArray(processingFiles.value.citizen_files),
+}))
+const previewProcessingImage = ref(null)
 
 const tabs = [
   { id: 'flow', label: '流转记录', icon: 'fas fa-exchange-alt' },
@@ -799,6 +859,8 @@ const loadFlowRecords = async (letterNo) => {
       selectedLetter.value._raw.deadline_at = res.data.letter.deadline_at
       selectedLetter.value['截止时间'] = res.data.letter.deadline_at
     }
+    // Store files for attachment display
+    processingFiles.value = res?.data?.files || {}
   } catch (e) {
     console.error('Failed to fetch flow records:', e)
     selectedLetter.value['流转记录'] = []

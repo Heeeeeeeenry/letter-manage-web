@@ -337,6 +337,55 @@
                 </div>
               </div>
             </div>
+            <div v-if="fileGroups.citizen_files.length" class="bg-gray-50 rounded-xl p-4">
+              <div class="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-700">
+                <i class="fas fa-user-edit text-indigo-500"></i>市民附件
+              </div>
+              <div class="space-y-3">
+                <div v-for="(f, i) in fileGroups.citizen_files" :key="i">
+                  <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                    <img :src="f.url" :alt="f.name" class="w-full max-h-48 object-cover" />
+                    <div class="text-xs text-gray-500 px-3 py-1.5 truncate">{{ f.name }}</div>
+                  </div>
+                  <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-3">
+                    <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
+                    <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                    <div class="flex items-center gap-2 mt-2">
+                      <button v-if="!transcribing[f.url] && (transcribeErrors[f.url] || !transcripts[f.url])" class="text-xs text-purple-500 hover:text-purple-700 flex items-center gap-1"
+                        @click.stop="doTranscribe(f.url)">
+                        <i class="fas fa-language"></i>{{ transcribeErrors[f.url] ? '重试转写' : '转文字' }}
+                      </button>
+                      <span v-if="transcribing[f.url]" class="text-xs text-gray-400"><i class="fas fa-spinner fa-pulse"></i> 转写中...</span>
+                    </div>
+                    <div v-if="transcribeErrors[f.url]" class="mt-2 p-2 bg-red-50 rounded-lg text-sm text-red-600">
+                      {{ transcribeErrors[f.url] }}
+                      <button class="ml-2 text-xs underline hover:no-underline" @click="doTranscribe(f.url)">重试</button>
+                    </div>
+                    <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
+                      <div class="transcribe-lines">
+                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                          :class="{ 
+                            typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                            'paragraph-start': line.isParagraphStart 
+                          }">
+                          <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
+                          <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                        </div>
+                        <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
+                          <span class="line-num">01</span>
+                          <span class="line-text"><span class="transcribe-cursor">▌</span></span>
+                        </div>
+                      </div>
+                      <div v-if="!transcribing[f.url]" class="transcribe-done">✔ 转写完成</div>
+                    </div>
+                  </div>
+                  <a v-else :href="f.url" target="_blank"
+                    class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-indigo-400 hover:shadow-sm transition-all text-sm text-gray-700">
+                    <i class="fas fa-file text-indigo-400"></i>{{ f.name }}
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -458,13 +507,14 @@ const fileGroups = computed(() => ({
   handler_feedback: parseFileArray(filesData.value.handler_feedback_files),
   district_feedback: parseFileArray(filesData.value.district_feedback_files),
   call_recordings: parseFileArray(filesData.value.call_recordings),
+  citizen_files: parseFileArray(filesData.value.citizen_files),
 }))
 
 const hasAnyFiles = computed(() => {
   const g = fileGroups.value
   return g.city_dispatch.length > 0 || g.district_dispatch.length > 0 ||
     g.handler_feedback.length > 0 || g.district_feedback.length > 0 ||
-    g.call_recordings.length > 0
+    g.call_recordings.length > 0 || g.citizen_files.length > 0
 })
 
 const formatTime = (t) => {
