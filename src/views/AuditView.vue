@@ -143,21 +143,12 @@
                           {{ transcribeErrors[f.url] }}
                           <button class="ml-2 text-xs underline hover:no-underline" @click="doTranscribe(f.url)">重试</button>
                         </div>
-                        <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
-                          <div class="transcribe-lines">
-                            <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
-                              :class="{ 
-                                typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
-                                'paragraph-start': line.isParagraphStart 
-                              }">
-                              <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
-                              <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
-                            </div>
-                            <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
-                              <span class="line-num">01</span>
-                              <span class="line-text">{{ transcribeStatus[f.url] || '' }}<span class="transcribe-cursor">▌</span></span>
-                            </div>
-                          </div>
+                        <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2">
+                          <TypewriterText 
+                            :text="transcripts[f.url] || ''" 
+                            :typing="!!transcribing[f.url]"
+                            :speed="25"
+                          />
                           <div v-if="!transcribing[f.url]" class="transcribe-done">✔ 转写完成</div>
                         </div>
                       </div>
@@ -251,6 +242,7 @@ import { getAuditList, getDetail, auditApprove, auditReject, transcribeAudio, tr
 import { normalizeFlowRecords } from '@/utils/flow'
 import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
+import TypewriterText from '@/components/TypewriterText.vue'
 
 const letters = ref([])
 const totalCount = ref(0)
