@@ -455,6 +455,7 @@ const previewImage = ref(null)
 const transcripts = reactive({})
 const transcribing = reactive({})
 const transcribeErrors = reactive({})
+const transcribeStatus = reactive({})
 
 // SenseVoice 风格：按换行分行，按句末标点切段落
 const splitLines = (text) => {
@@ -488,16 +489,20 @@ const doTranscribe = (url) => {
   if (!transcripts[url]) transcripts[url] = ''
 
   transcribeAudioStream(url,
-    (chunk) => { transcripts[url] = (transcripts[url] || '') + chunk },
+    (chunk) => {
+      transcribeStatus[url] = ''
+      transcripts[url] = (transcripts[url] || '') + chunk
+    },
     (fullText) => {
-      if (fullText) transcripts[url] = fullText
+      transcribeStatus[url] = ''
+      if (fullText && !transcripts[url]) transcripts[url] = fullText
       transcribing[url] = false
     },
     (err) => {
       transcribeErrors[url] = '转写失败: ' + err
       transcribing[url] = false
     },
-    (msg) => { console.log('[transcribe]', msg) }
+    (msg) => { transcribeStatus[url] = msg }
   )
 }
 

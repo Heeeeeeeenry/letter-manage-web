@@ -309,7 +309,7 @@
                             </div>
                             <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
                               <span class="line-num">01</span>
-                              <span class="line-text"><span class="transcribe-cursor">▌</span></span>
+                              <span class="line-text">{{ transcribeStatus[f.url] || '' }}<span class="transcribe-cursor">▌</span></span>
                             </div>
                           </div>
                           <div v-if="!transcribing[f.url]" class="transcribe-done">✔ 转写完成</div>
@@ -643,6 +643,7 @@ let pollTimer = null
 const transcripts = reactive({})
 const transcribing = reactive({})
 const transcribeErrors = reactive({})
+const transcribeStatus = reactive({})
 let activeStreamController = null
 
 // SenseVoice 风格：按换行分行，按句末标点切段落
@@ -678,17 +679,19 @@ const doTranscribe = (url) => {
 
   activeStreamController = transcribeAudioStream(url,
     (chunk) => {
+      transcribeStatus[url] = ''
       transcripts[url] = (transcripts[url] || '') + chunk
     },
     (fullText) => {
-      if (fullText) transcripts[url] = fullText
+      transcribeStatus[url] = ''
+      if (fullText && !transcripts[url]) transcripts[url] = fullText
       transcribing[url] = false
     },
     (err) => {
       transcribeErrors[url] = '转写失败: ' + err
       transcribing[url] = false
     },
-    (msg) => { console.log('[transcribe]', msg) }
+    (msg) => { transcribeStatus[url] = msg }
   )
 }
 
