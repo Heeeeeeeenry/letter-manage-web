@@ -100,7 +100,7 @@ export const transcribeAudioStream = (audio_url, onChunk, onDone, onError, onSta
         // 提取所有 data 字段（支持多行），用 \n 拼接
         const dataLines = trimmed.match(/^data:\s*(.*)$/gm)
         const data = dataLines ? dataLines.map(l => l.replace(/^data:\s*/, '')).join('\n') : ''
-        if (event === 'chunk') onChunk(data)
+        if (event === 'chunk') { onChunk(data); await new Promise(r => setTimeout(r, 0)) }
         else if (event === 'done') onDone(data)
         else if (event === 'error') onError(data)
         else if (event === 'status' && onStatus) onStatus(data)
