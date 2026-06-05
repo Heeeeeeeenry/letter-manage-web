@@ -13,7 +13,7 @@ import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 const props = defineProps({
   text: { type: String, default: '' },
   typing: { type: Boolean, default: false },
-  speed: { type: Number, default: 25 } // ms per character
+  speed: { type: Number, default: 25 }
 })
 
 const emit = defineEmits(['done'])
@@ -22,53 +22,60 @@ const containerRef = ref(null)
 const displayText = ref('')
 const isTyping = ref(false)
 const userScrolled = ref(false)
-const typeQueue = ref([])
-const typeTimer = ref(null)
+const pendingBuffer = ref('')
+const committedLength = ref(0)
+const burstThreshold = 20
+const rafId = ref(null)
 
-// Process the character queue
-function processQueue() {
-  if (typeQueue.value.length === 0) {
+// RAF-based typewriter loop with burst mode
+function typeLoop() {
+  const pending = pendingBuffer.value
+  if (pending.length === 0) {
     isTyping.value = false
-    typeTimer.value = null
+    rafId.value = null
     emit('done')
     return
   }
   isTyping.value = true
-  displayText.value += typeQueue.value.shift()
+  
+  // Burst mode: if buffer is large, type faster
+  const charsPerTick = pending.length > burstThreshold ? 5 : 1
+  const take = pending.substring(0, charsPerTick)
+  pendingBuffer.value = pending.substring(charsPerTick)
+  displayText.value += take
+  committedLength.value = displayText.value.length
+  
   scrollToBottom()
-  typeTimer.value = setTimeout(processQueue, props.speed)
+  setTimeout(() => { rafId.value = requestAnimationFrame(typeLoop) }, props.speed)
 }
 
-// Watch for new text
+function startTypewriter() {
+  if (!rafId.value && pendingBuffer.value.length > 0) {
+    rafId.value = requestAnimationFrame(typeLoop)
+  }
+}
+
+// Watch for new text — only process delta
 watch(() => props.text, (newText) => {
-  if (!newText) return
-  // Find the delta: what characters are new?
-  const oldLen = displayText.value.length
-  const newChars = [...newText].slice(oldLen)
-  if (newChars.length === 0) return
-  typeQueue.value.push(...newChars)
-  if (!typeTimer.value) processQueue()
+  if (!newText) {
+    displayText.value = ''
+    committedLength.value = 0
+    pendingBuffer.value = ''
+    return
+  }
+  const delta = newText.substring(committedLength.value)
+  if (delta.length > 0) {
+    pendingBuffer.value += delta
+    startTypewriter()
+  }
 }, { immediate: true })
 
-// Also reset if text changes completely (new transcription)
-watch(() => props.text, (newText, oldText) => {
-  if (newText && oldText && newText.length < oldText.length) {
-    // Text was reset, clear
-    displayText.value = ''
-    typeQueue.value = [...newText]
-    if (typeTimer.value) clearTimeout(typeTimer.value)
-    processQueue()
-  }
-})
-
-// Auto-scroll logic
+// Auto-scroll
 function scrollToBottom() {
   if (userScrolled.value) return
   nextTick(() => {
     const el = containerRef.value
-    if (el) {
-      el.scrollTop = el.scrollHeight
-    }
+    if (el) el.scrollTop = el.scrollHeight
   })
 }
 
@@ -81,24 +88,17 @@ function onScroll() {
     userScrolled.value = false
   } else {
     userScrolled.value = true
-    // Auto-resume after 3 seconds of no manual scrolling
     clearTimeout(scrollTimeout)
-    scrollTimeout = setTimeout(() => {
-      userScrolled.value = false
-      scrollToBottom()
-    }, 3000)
+    scrollTimeout = setTimeout(() => { userScrolled.value = false; scrollToBottom() }, 3000)
   }
 }
 
 function onWheel(e) {
-  if (e.deltaY < 0) {
-    // Scrolling up - pause auto-scroll
-    userScrolled.value = true
-  }
+  if (e.deltaY < 0) userScrolled.value = true
 }
 
 onBeforeUnmount(() => {
-  clearTimeout(typeTimer.value)
+  if (rafId.value) cancelAnimationFrame(rafId.value)
   clearTimeout(scrollTimeout)
 })
 </script>
@@ -115,34 +115,21 @@ onBeforeUnmount(() => {
   line-height: 1.8;
   color: #e0e0e0;
 }
-
 .typewriter-content {
   white-space: pre-wrap;
   word-break: break-all;
 }
-
 .typewriter-cursor {
   display: inline-block;
   animation: blink 1s step-end infinite;
   color: #4fc3f7;
   font-weight: bold;
 }
-
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
-
-.typewriter-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.typewriter-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.typewriter-container::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 3px;
-}
+.typewriter-container::-webkit-scrollbar { width: 6px; }
+.typewriter-container::-webkit-scrollbar-track { background: transparent; }
+.typewriter-container::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
 </style>
