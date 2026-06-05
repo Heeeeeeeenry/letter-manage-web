@@ -146,9 +146,9 @@ const loadMenu = async () => {
 }
 
 onMounted(async () => {
-  await loadMenu()
+  try { await loadMenu() } catch (e) { console.error('Menu load failed:', e) }
 
-  // Animate out loading overlay
+  // Always fade out loading, even if menu failed
   setTimeout(() => {
     fadeOutLoading.value = true
     setTimeout(() => {

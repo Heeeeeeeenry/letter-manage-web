@@ -194,8 +194,36 @@
                     <div class="text-xs text-gray-500 px-2 py-1 truncate">{{ f.name }}</div>
                   </div>
                   <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-2">
-                    <div class="text-xs text-gray-500 mb-1 truncate">{{ f.name }}</div>
+                    <div class="text-xs text-gray-500 mb-1.5 truncate">{{ f.name }}</div>
                     <audio controls :src="f.url" class="w-full" style="height:32px"></audio>
+                    <div class="flex items-center gap-2 mt-2">
+                      <button v-if="!transcribing[f.url] && (transcribeErrors[f.url] || !transcripts[f.url])" class="text-xs text-purple-500 hover:text-purple-700 flex items-center gap-1"
+                        @click.stop="doTranscribe(f.url)">
+                        <i class="fas fa-language"></i>{{ transcribeErrors[f.url] ? '重试转写' : '转文字' }}
+                      </button>
+                      <span v-if="transcribing[f.url]" class="text-xs text-gray-400"><i class="fas fa-spinner fa-pulse"></i> 转写中...</span>
+                    </div>
+                    <div v-if="transcribeErrors[f.url]" class="mt-2 p-2 bg-red-50 rounded-lg text-sm text-red-600">
+                      {{ transcribeErrors[f.url] }}
+                      <button class="ml-2 text-xs underline hover:no-underline" @click="doTranscribe(f.url)">重试</button>
+                    </div>
+                    <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
+                      <div class="transcribe-lines">
+                        <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                          :class="{ 
+                            typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                            'paragraph-start': line.isParagraphStart 
+                          }">
+                          <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
+                          <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                        </div>
+                        <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
+                          <span class="line-num">01</span>
+                          <span class="line-text"><span class="transcribe-cursor">▌</span></span>
+                        </div>
+                      </div>
+                      <div v-if="!transcribing[f.url]" class="transcribe-done">✔ 转写完成</div>
+                    </div>
                   </div>
                   <a v-else :href="f.url" target="_blank"
                     class="flex items-center gap-2 px-2 py-1.5 bg-white rounded-lg border border-gray-200 hover:border-indigo-400 hover:shadow-sm transition-all text-xs text-gray-700">
@@ -502,8 +530,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi, setSpecialFocus } from '@/api/letter'
+import { ref, computed, onMounted, onUnmounted, nextTick, reactive, watch } from 'vue'
+import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi, setSpecialFocus, transcribeAudioStream } from '@/api/letter'
 import { getDispatchUnits, getSpecialFocusList, getUsersInUnit } from '@/api/setting'
 import { statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -525,6 +553,69 @@ const showDispatchModal = ref(false)
 const showRemarkModalWindow = ref(false)
 const autoDispatchEnabled = ref(false)
 let pollTimer = null
+let activeStreamController = null
+
+// 音频转文字
+const transcripts = reactive({})
+const transcribing = reactive({})
+const transcribeErrors = reactive({})
+
+// SenseVoice 风格：按换行分行，按句末标点切段落
+const splitLines = (text) => {
+  if (!text) return [{ text: '', isParagraphStart: false }]
+  const rawLines = text.split(/\n+/).filter(s => s.trim())
+  if (rawLines.length === 0) return [{ text, isParagraphStart: false }]
+
+  const lines = []
+  let prevEndsWithPunct = false
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i].trim()
+    if (!line) continue
+    // 上一行以句号/问号/感叹号结尾 → 新段落
+    const isParagraphStart = i > 0 && prevEndsWithPunct
+    lines.push({ text: line, isParagraphStart })
+    prevEndsWithPunct = /[。！？]$/.test(line)
+  }
+  return lines.length ? lines : [{ text, isParagraphStart: false }]
+}
+
+const lineCache = reactive({})
+watch(() => ({ ...transcripts }), () => {
+  for (const k of Object.keys(transcripts)) {
+    lineCache[k] = splitLines(transcripts[k] || '')
+  }
+}, { deep: true, immediate: true })
+
+const doTranscribe = (url) => {
+  if (transcribing[url]) return
+  transcribing[url] = true
+  delete transcribeErrors[url]
+  // 不删除已有 transcripts，错误时保留已转写的内容
+  if (!transcripts[url]) transcripts[url] = ''
+
+  activeStreamController = transcribeAudioStream(url,
+    // onChunk: Gradio 发送累积全文，直接替换（不再追加）
+    (chunk) => {
+      transcripts[url] = chunk
+    },
+    // onDone: 完成
+    (fullText) => {
+      if (fullText) transcripts[url] = fullText
+      transcribing[url] = false
+    },
+    // onError
+    (err) => {
+      transcribeErrors[url] = '转写失败: ' + err
+      // 不 delete transcripts，保留已流式输出的内容
+      transcribing[url] = false
+    },
+    // onStatus: 进度通知
+    (msg) => {
+      if (!transcripts[url]) transcripts[url] = ''
+      transcripts[url] = msg
+    }
+  )
+}
 
 // Files display
 const dispatchFiles = ref({})
@@ -1568,6 +1659,10 @@ onUnmounted(() => {
     chatAbortController.abort()
     chatAbortController = null
   }
+  if (activeStreamController) {
+    activeStreamController.abort()
+    activeStreamController = null
+  }
 })
 </script>
 
@@ -1661,5 +1756,80 @@ onUnmounted(() => {
 .ai-btn-fill-all:hover {
   transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+/* SenseVoice 风格终端转写输出 — Catppuccin Mocha 暗色主题 */
+.transcribe-terminal {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 12px 16px;
+  max-height: 280px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.transcribe-lines {
+  min-height: 1.5em;
+}
+
+.transcribe-line {
+  display: flex;
+  gap: 12px;
+  padding: 1px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 段落首行加间距 — SenseVoice 风格 */
+.transcribe-line.paragraph-start {
+  margin-top: 10px;
+}
+
+.transcribe-line .line-num {
+  flex-shrink: 0;
+  width: 24px;
+  text-align: right;
+  color: #585b70;
+  font-size: 11px;
+  user-select: none;
+}
+
+.transcribe-line .line-text {
+  flex: 1;
+  color: #cdd6f4;
+}
+
+/* 闪烁光标 — SenseVoice 同款蓝色 */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.transcribe-cursor {
+  display: inline;
+  color: #89b4fa;
+  font-weight: bold;
+  animation: cursor-blink 0.8s infinite;
+}
+
+/* 正在输入的行高亮 */
+.transcribe-line.typing .line-text {
+  color: #f5c2e7;
+}
+
+/* 完成标记 */
+.transcribe-done {
+  display: block;
+  text-align: right;
+  color: #a6e3a1;
+  font-size: 11px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #313244;
 }
 </style>

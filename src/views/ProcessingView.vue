@@ -286,6 +286,34 @@
                       <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-3">
                         <div class="text-xs text-gray-500 mb-2 truncate">{{ f.name }}</div>
                         <audio controls :src="f.url" class="w-full" style="height:36px"></audio>
+                        <div class="flex items-center gap-2 mt-2">
+                          <button v-if="!transcribing[f.url] && (transcribeErrors[f.url] || !transcripts[f.url])" class="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-1"
+                            @click.stop="doTranscribe(f.url)">
+                            <i class="fas fa-language"></i>{{ transcribeErrors[f.url] ? '重试转写' : '转文字' }}
+                          </button>
+                          <span v-if="transcribing[f.url]" class="text-xs text-gray-400"><i class="fas fa-spinner fa-pulse"></i> 转写中...</span>
+                        </div>
+                        <div v-if="transcribeErrors[f.url]" class="mt-2 p-2 bg-red-50 rounded-lg text-sm text-red-600">
+                          {{ transcribeErrors[f.url] }}
+                          <button class="ml-2 text-xs underline hover:no-underline" @click="doTranscribe(f.url)">重试</button>
+                        </div>
+                        <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2 transcribe-terminal">
+                          <div class="transcribe-lines">
+                            <div v-for="(line, idx) in lineCache[f.url]" :key="idx" class="transcribe-line" 
+                              :class="{ 
+                                typing: transcribing[f.url] && idx === lineCache[f.url].length - 1,
+                                'paragraph-start': line.isParagraphStart 
+                              }">
+                              <span class="line-num">{{ String(idx + 1).padStart(2, '0') }}</span>
+                              <span class="line-text">{{ line.text }}<span v-if="transcribing[f.url] && idx === lineCache[f.url].length - 1" class="transcribe-cursor">▌</span></span>
+                            </div>
+                            <div v-if="transcribing[f.url] && lineCache[f.url].length === 0" class="transcribe-line typing">
+                              <span class="line-num">01</span>
+                              <span class="line-text"><span class="transcribe-cursor">▌</span></span>
+                            </div>
+                          </div>
+                          <div v-if="!transcribing[f.url]" class="transcribe-done">✔ 转写完成</div>
+                        </div>
                       </div>
                       <a v-else :href="f.url" target="_blank"
                         class="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 hover:border-indigo-400 hover:shadow-sm transition-all text-sm text-gray-700">
@@ -556,8 +584,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { getProcessingList, getDetail, submitProcessing, returnLetter, markInvalid, analyzeLetter, getCategories, getByIdcard } from '@/api/letter'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, reactive } from 'vue'
+import { getProcessingList, getDetail, submitProcessing, returnLetter, markInvalid, analyzeLetter, getCategories, getByIdcard, transcribeAudioStream } from '@/api/letter'
 import { normalizeFlowRecords } from '@/utils/flow'
 import StatusBadge from '@/components/StatusBadge.vue'
 
@@ -610,6 +638,63 @@ const aiAnalyzing = ref(false)
 const aiResult = ref(null)
 
 let pollTimer = null
+
+// 音频转文字
+const transcripts = reactive({})
+const transcribing = reactive({})
+const transcribeErrors = reactive({})
+let activeStreamController = null
+
+// SenseVoice 风格：按换行分行，按句末标点切段落
+const splitLines = (text) => {
+  if (!text) return [{ text: '', isParagraphStart: false }]
+  const rawLines = text.split(/\n+/).filter(s => s.trim())
+  if (rawLines.length === 0) return [{ text, isParagraphStart: false }]
+
+  const lines = []
+  let prevEndsWithPunct = false
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i].trim()
+    if (!line) continue
+    const isParagraphStart = i > 0 && prevEndsWithPunct
+    lines.push({ text: line, isParagraphStart })
+    prevEndsWithPunct = /[。！？]$/.test(line)
+  }
+  return lines.length ? lines : [{ text, isParagraphStart: false }]
+}
+
+const lineCache = reactive({})
+watch(() => ({ ...transcripts }), () => {
+  for (const k of Object.keys(transcripts)) {
+    lineCache[k] = splitLines(transcripts[k] || '')
+  }
+}, { deep: true, immediate: true })
+
+const doTranscribe = (url) => {
+  if (transcribing[url]) return
+  transcribing[url] = true
+  delete transcribeErrors[url]
+  if (!transcripts[url]) transcripts[url] = ''
+
+  activeStreamController = transcribeAudioStream(url,
+    (chunk) => {
+      transcripts[url] = chunk
+    },
+    (fullText) => {
+      if (fullText) transcripts[url] = fullText
+      transcribing[url] = false
+    },
+    (err) => {
+      transcribeErrors[url] = '转写失败: ' + err
+      transcribing[url] = false
+    },
+    // onStatus
+    (msg) => {
+      if (!transcripts[url]) transcripts[url] = ''
+      transcripts[url] = msg
+    }
+  )
+}
 
 // Files display
 const processingFiles = ref({})
@@ -1232,6 +1317,10 @@ onUnmounted(() => {
   if (removeScrollSpy) removeScrollSpy()
   if (pollTimer) clearInterval(pollTimer)
   if (processingTimer) clearInterval(processingTimer)
+  if (activeStreamController) {
+    activeStreamController.abort()
+    activeStreamController = null
+  }
 })
 </script>
 
@@ -1514,5 +1603,76 @@ onUnmounted(() => {
   font-size: 12px;
   color: #6b7280;
   margin-top: 2px;
+}
+
+/* SenseVoice 风格终端转写输出 */
+.transcribe-terminal {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 12px 16px;
+  max-height: 280px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.transcribe-lines {
+  min-height: 1.5em;
+}
+
+.transcribe-line {
+  display: flex;
+  gap: 12px;
+  padding: 1px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.transcribe-line.paragraph-start {
+  margin-top: 10px;
+}
+
+.transcribe-line .line-num {
+  flex-shrink: 0;
+  width: 24px;
+  text-align: right;
+  color: #585b70;
+  font-size: 11px;
+  user-select: none;
+}
+
+.transcribe-line .line-text {
+  flex: 1;
+  color: #cdd6f4;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.transcribe-cursor {
+  display: inline;
+  color: #89b4fa;
+  font-weight: bold;
+  animation: cursor-blink 0.8s infinite;
+}
+
+.transcribe-line.typing .line-text {
+  color: #f5c2e7;
+}
+
+.transcribe-done {
+  display: block;
+  text-align: right;
+  color: #a6e3a1;
+  font-size: 11px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #313244;
 }
 </style>

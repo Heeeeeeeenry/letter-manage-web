@@ -497,6 +497,11 @@ const doTranscribe = (url) => {
     (err) => {
       transcribeErrors[url] = '转写失败: ' + err
       transcribing[url] = false
+    },
+    // onStatus
+    (msg) => {
+      if (!transcripts[url]) transcripts[url] = ''
+      transcripts[url] = msg
     }
   )
 }

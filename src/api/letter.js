@@ -72,7 +72,7 @@ export const getLetterSpecialFocus = (args) =>
 export const transcribeAudio = (audio_url) =>
   http.post('/api/tool/transcribe/', { audio_url })
 
-export const transcribeAudioStream = (audio_url, onChunk, onDone, onError) => {
+export const transcribeAudioStream = (audio_url, onChunk, onDone, onError, onStatus) => {
   const controller = new AbortController()
   fetch('/api/tool/transcribe_stream/', {
     method: 'POST',
@@ -103,6 +103,7 @@ export const transcribeAudioStream = (audio_url, onChunk, onDone, onError) => {
         if (event === 'chunk') onChunk(data)
         else if (event === 'done') onDone(data)
         else if (event === 'error') onError(data)
+        else if (event === 'status' && onStatus) onStatus(data)
       }
     }
   }).catch(err => {
