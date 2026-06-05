@@ -678,7 +678,7 @@ const doTranscribe = (url) => {
 
   activeStreamController = transcribeAudioStream(url,
     (chunk) => {
-      transcripts[url] = chunk
+      transcripts[url] = (transcripts[url] || '') + chunk
     },
     (fullText) => {
       if (fullText) transcripts[url] = fullText
@@ -688,11 +688,7 @@ const doTranscribe = (url) => {
       transcribeErrors[url] = '转写失败: ' + err
       transcribing[url] = false
     },
-    // onStatus
-    (msg) => {
-      if (!transcripts[url]) transcripts[url] = ''
-      transcripts[url] = msg
-    }
+    (msg) => { console.log('[transcribe]', msg) }
   )
 }
 

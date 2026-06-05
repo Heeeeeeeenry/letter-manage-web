@@ -336,9 +336,9 @@ const doTranscribe = (url) => {
   if (!transcripts[url]) transcripts[url] = ''
 
   activeStreamController = transcribeAudioStream(url,
-    // onChunk: Gradio 发送累积全文，直接替换（不再追加）
+    // onChunk: 逐句追加（后端已按句子拆分流式发送）
     (chunk) => {
-      transcripts[url] = chunk
+      transcripts[url] = (transcripts[url] || '') + chunk
     },
     // onDone: 完成
     (fullText) => {
@@ -348,13 +348,11 @@ const doTranscribe = (url) => {
     // onError
     (err) => {
       transcribeErrors[url] = '转写失败: ' + err
-      // 不 delete transcripts，保留已流式输出的内容
       transcribing[url] = false
     },
-    // onStatus: 进度通知
+    // onStatus: 仅日志，不覆盖转写内容
     (msg) => {
-      if (!transcripts[url]) transcripts[url] = ''
-      transcripts[url] = msg
+      console.log('[transcribe]', msg)
     }
   )
 }

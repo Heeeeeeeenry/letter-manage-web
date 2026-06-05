@@ -488,8 +488,7 @@ const doTranscribe = (url) => {
   if (!transcripts[url]) transcripts[url] = ''
 
   transcribeAudioStream(url,
-    // onChunk: Gradio 发送累积全文，直接替换
-    (chunk) => { transcripts[url] = chunk },
+    (chunk) => { transcripts[url] = (transcripts[url] || '') + chunk },
     (fullText) => {
       if (fullText) transcripts[url] = fullText
       transcribing[url] = false
@@ -498,11 +497,7 @@ const doTranscribe = (url) => {
       transcribeErrors[url] = '转写失败: ' + err
       transcribing[url] = false
     },
-    // onStatus
-    (msg) => {
-      if (!transcripts[url]) transcripts[url] = ''
-      transcripts[url] = msg
-    }
+    (msg) => { console.log('[transcribe]', msg) }
   )
 }
 
