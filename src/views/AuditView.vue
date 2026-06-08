@@ -332,7 +332,7 @@ const doTranscribe = (url) => {
     // onChunk: 逐句追加
     (chunk) => {
       transcribeStatus[url] = ''
-      transcripts[url] = chunk  // segments arrive as complete lines, replace not append
+      transcripts[url] = (transcripts[url] || '') + chunk  // accumulate segments
     },
     // onDone: 完成
     (fullText) => {

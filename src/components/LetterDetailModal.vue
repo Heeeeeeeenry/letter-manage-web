@@ -438,7 +438,7 @@ const doTranscribe = (url) => {
   transcribeAudioStream(url,
     (chunk) => {
       transcribeStatus[url] = ''
-      transcripts[url] = chunk  // segments arrive as complete lines, replace not append
+      transcripts[url] = (transcripts[url] || '') + chunk  // accumulate segments
     },
     (fullText) => {
       transcribeStatus[url] = ''
