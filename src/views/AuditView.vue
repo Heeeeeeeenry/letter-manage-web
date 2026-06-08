@@ -119,6 +119,46 @@
             <div v-if="hasAuditFiles">
               <div class="text-sm font-medium text-gray-700 mb-3">附件</div>
               <div class="space-y-3">
+                <div v-if="auditFileGroups.citizen.length" class="bg-gray-50 rounded-xl p-3">
+                  <div class="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-600">
+                    <i class="fas fa-user text-green-500"></i>市民附件
+                  </div>
+                  <div class="space-y-2">
+                    <div v-for="(f, i) in auditFileGroups.citizen" :key="i">
+                      <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                        <img :src="f.url" :alt="f.name" class="w-full max-h-36 object-cover" />
+                        <div class="text-xs text-gray-500 px-2 py-1 truncate">{{ f.name }}</div>
+                      </div>
+                      <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-2">
+                        <div class="text-xs text-gray-500 mb-1.5 truncate">{{ f.name }}</div>
+                        <audio controls :src="f.url" class="w-full" style="height:32px"></audio>
+                        <div class="flex items-center gap-2 mt-2">
+                          <button v-if="!transcribing[f.url] && (transcribeErrors[f.url] || !transcripts[f.url])" class="text-xs text-purple-500 hover:text-purple-700 flex items-center gap-1"
+                            @click.stop="doTranscribe(f.url)">
+                            <i class="fas fa-language"></i>{{ transcribeErrors[f.url] ? '重试转写' : '转文字' }}
+                          </button>
+                          <span v-if="transcribing[f.url]" class="text-xs text-gray-400"><i class="fas fa-spinner fa-pulse"></i> 转写中...</span>
+                        </div>
+                        <div v-if="transcribeErrors[f.url]" class="mt-2 p-2 bg-red-50 rounded-lg text-sm text-red-600">
+                          {{ transcribeErrors[f.url] }}
+                          <button class="ml-2 text-xs underline hover:no-underline" @click="doTranscribe(f.url)">重试</button>
+                        </div>
+                        <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2">
+                          <TypewriterText 
+                            :text="transcripts[f.url] || ''" 
+                            :typing="!!transcribing[f.url]"
+                            :speed="25"
+                          />
+                          <div v-if="!transcribing[f.url]" class="transcribe-done">✔ 转写完成</div>
+                        </div>
+                      </div>
+                      <a v-else :href="f.url" target="_blank"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white rounded-lg border border-gray-200 hover:border-green-400 hover:shadow-sm transition-all text-xs text-gray-700">
+                        <i class="fas fa-file text-green-400"></i>{{ f.name }}
+                      </a>
+                    </div>
+                  </div>
+                </div>
                 <div v-if="auditFileGroups.handler_feedback.length" class="bg-gray-50 rounded-xl p-3">
                   <div class="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-600">
                     <i class="fas fa-clipboard-check text-purple-500"></i>处理人反馈附件
@@ -155,6 +195,46 @@
                       <a v-else :href="f.url" target="_blank"
                         class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white rounded-lg border border-gray-200 hover:border-purple-400 hover:shadow-sm transition-all text-xs text-gray-700">
                         <i class="fas fa-file text-purple-400"></i>{{ f.name }}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="auditFileGroups.district_feedback.length" class="bg-gray-50 rounded-xl p-3">
+                  <div class="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-600">
+                    <i class="fas fa-paperclip text-blue-500"></i>上报附件
+                  </div>
+                  <div class="space-y-2">
+                    <div v-for="(f, i) in auditFileGroups.district_feedback" :key="i">
+                      <div v-if="isImageFile(f.name)" class="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow" @click="previewImage = f.url">
+                        <img :src="f.url" :alt="f.name" class="w-full max-h-36 object-cover" />
+                        <div class="text-xs text-gray-500 px-2 py-1 truncate">{{ f.name }}</div>
+                      </div>
+                      <div v-else-if="isAudioFile(f.name)" class="bg-white rounded-lg border border-gray-200 p-2">
+                        <div class="text-xs text-gray-500 mb-1.5 truncate">{{ f.name }}</div>
+                        <audio controls :src="f.url" class="w-full" style="height:32px"></audio>
+                        <div class="flex items-center gap-2 mt-2">
+                          <button v-if="!transcribing[f.url] && (transcribeErrors[f.url] || !transcripts[f.url])" class="text-xs text-purple-500 hover:text-purple-700 flex items-center gap-1"
+                            @click.stop="doTranscribe(f.url)">
+                            <i class="fas fa-language"></i>{{ transcribeErrors[f.url] ? '重试转写' : '转文字' }}
+                          </button>
+                          <span v-if="transcribing[f.url]" class="text-xs text-gray-400"><i class="fas fa-spinner fa-pulse"></i> 转写中...</span>
+                        </div>
+                        <div v-if="transcribeErrors[f.url]" class="mt-2 p-2 bg-red-50 rounded-lg text-sm text-red-600">
+                          {{ transcribeErrors[f.url] }}
+                          <button class="ml-2 text-xs underline hover:no-underline" @click="doTranscribe(f.url)">重试</button>
+                        </div>
+                        <div v-if="transcripts[f.url] !== undefined && !transcribeErrors[f.url]" class="mt-2">
+                          <TypewriterText 
+                            :text="transcripts[f.url] || ''" 
+                            :typing="!!transcribing[f.url]"
+                            :speed="25"
+                          />
+                          <div v-if="!transcribing[f.url]" class="transcribe-done">✔ 转写完成</div>
+                        </div>
+                      </div>
+                      <a v-else :href="f.url" target="_blank"
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 bg-white rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-sm transition-all text-xs text-gray-700">
+                        <i class="fas fa-file text-blue-400"></i>{{ f.name }}
                       </a>
                     </div>
                   </div>
@@ -355,14 +435,16 @@ const doTranscribe = (url) => {
 const auditFileGroups = computed(() => {
   const files = selectedLetter.value?.['附件'] || {}
   return {
+    citizen: parseFileArray(files.citizen_files),
     handler_feedback: parseFileArray(files.handler_feedback_files),
+    district_feedback: parseFileArray(files.district_feedback_files),
     call_recordings: parseFileArray(files.call_recordings),
   }
 })
 
 const hasAuditFiles = computed(() => {
   const g = auditFileGroups.value
-  return g.handler_feedback.length > 0 || g.call_recordings.length > 0
+  return g.citizen.length > 0 || g.handler_feedback.length > 0 || g.district_feedback.length > 0 || g.call_recordings.length > 0
 })
 
 const formatTime = (t) => {
@@ -489,6 +571,9 @@ const goPage = (p) => {
 
 onMounted(async () => {
   await loadData()
+  if (letters.value.length > 0 && !selectedLetter.value) {
+    selectLetter(letters.value[0])
+  }
   pollTimer = setInterval(loadData, 5000)
 })
 onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })

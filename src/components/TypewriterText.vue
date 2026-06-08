@@ -1,14 +1,14 @@
 <template>
   <div class="typewriter-container" ref="containerRef" @scroll="onScroll" @wheel="onWheel">
     <div class="typewriter-content">
-      <span class="typewriter-text">{{ text }}</span>
-      <span v-if="typing" class="typewriter-cursor">▌</span>
+      <span class="typewriter-text">{{ displayedText }}</span>
+      <span v-if="isTyping" class="typewriter-cursor">▌</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onBeforeUnmount } from 'vue'
+import { ref, watch, onBeforeUnmount, nextTick, computed } from 'vue'
 
 const props = defineProps({
   text: { type: String, default: '' },
@@ -16,9 +16,66 @@ const props = defineProps({
   speed: { type: Number, default: 25 }
 })
 
+// Internal state
 const containerRef = ref(null)
 const userScrolled = ref(false)
+const displayedLength = ref(0)
+let timer = null
+let lastText = ''
 
+// Track if text was appended (continuous) or replaced
+const isAppend = (oldText, newText) => {
+  return newText.startsWith(oldText) && newText.length > oldText.length
+}
+
+// Start/resume typing toward target length
+function typeToward(targetLen) {
+  clearInterval(timer)
+  if (displayedLength.value >= targetLen) return
+
+  timer = setInterval(() => {
+    if (displayedLength.value < targetLen) {
+      displayedLength.value++
+      scrollToBottom()
+    } else {
+      clearInterval(timer)
+    }
+  }, props.speed)
+}
+
+// Watch text changes — only type new characters
+watch(() => props.text, (newText, oldText) => {
+  if (!props.typing) {
+    // Not typing: show everything immediately
+    displayedLength.value = newText.length
+    scrollToBottom()
+    return
+  }
+
+  if (isAppend(oldText || '', newText)) {
+    // Appended: type the new characters
+    typeToward(newText.length)
+  } else {
+    // Replaced or initial: start from 0
+    displayedLength.value = 0
+    typeToward(newText.length)
+  }
+}, { immediate: true })
+
+// Watch typing state — when done, show all
+watch(() => props.typing, (val) => {
+  if (!val) {
+    clearInterval(timer)
+    displayedLength.value = props.text.length
+    scrollToBottom()
+  }
+})
+
+// Computed
+const displayedText = computed(() => props.text.slice(0, displayedLength.value))
+const isTyping = computed(() => props.typing && displayedLength.value < props.text.length)
+
+// Auto-scroll
 function scrollToBottom() {
   if (userScrolled.value) return
   nextTick(() => {
@@ -45,11 +102,10 @@ function onWheel(e) {
   if (e.deltaY < 0) userScrolled.value = true
 }
 
-onBeforeUnmount(() => clearTimeout(scrollTimeout))
-
-// Auto-scroll when text changes
-import { watch } from 'vue'
-watch(() => props.text, () => scrollToBottom())
+onBeforeUnmount(() => {
+  clearInterval(timer)
+  clearTimeout(scrollTimeout)
+})
 </script>
 
 <style scoped>

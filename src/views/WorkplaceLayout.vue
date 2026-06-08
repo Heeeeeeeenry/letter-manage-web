@@ -22,10 +22,7 @@
       </div>
 
       <div class="flex items-center space-x-4">
-        <button class="relative w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 transition">
-          <i class="fas fa-bell text-gray-600 text-lg"></i>
-          <span class="notification-badge"></span>
-        </button>
+        <NotificationBell />
         <div class="flex items-center px-4 py-2 bg-gray-50 rounded-xl">
           <i class="fas fa-user text-gray-500 mr-2"></i>
           <span class="text-gray-700 font-medium">{{ currentUser?.name || '管理员' }}</span>
@@ -80,6 +77,7 @@ import { getMenu } from '@/api/config'
 import { logout } from '@/api/auth'
 import { resetAuthCache } from '@/router'
 import { useUser } from '@/stores/user'
+import NotificationBell from '@/components/NotificationBell.vue'
 
 const router = useRouter()
 const route = useRoute()

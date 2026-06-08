@@ -74,40 +74,71 @@ export const transcribeAudio = (audio_url) =>
 
 export const transcribeAudioStream = (audio_url, onChunk, onDone, onError, onStatus) => {
   const controller = new AbortController()
-  fetch('/api/tool/transcribe_stream/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audio_url }),
-    signal: controller.signal,
-  }).then(async (response) => {
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      // SSE 消息以 \n\n 分隔（不是按行），避免 event/data 跨 chunk 丢失
-      const messages = buffer.split('\n\n')
-      buffer = messages.pop() // 保留不完整的最后一条消息
-      for (const msg of messages) {
-        const trimmed = msg.trim()
-        if (!trimmed) continue
-        // 提取 event 字段
-        const eventMatch = trimmed.match(/^event:\s*(.+)$/m)
-        if (!eventMatch) continue
-        const event = eventMatch[1].trim()
-        // 提取所有 data 字段（支持多行），用 \n 拼接
-        const dataLines = trimmed.match(/^data:\s*(.*)$/gm)
-        const data = dataLines ? dataLines.map(l => l.replace(/^data:\s*/, '')).join('\n') : ''
-        if (event === 'chunk') { onChunk(data); await new Promise(r => setTimeout(r, 0)) }
-        else if (event === 'done') onDone(data)
-        else if (event === 'error') onError(data)
-        else if (event === 'status' && onStatus) onStatus(data)
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${protocol}//${location.host}/api/tool/transcribe_ws`
+
+  let ws = null
+  let fullText = ''
+
+  try {
+    ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ audio_url }))
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data)
+
+        switch (msg.type) {
+          case 'status':
+            if (onStatus) onStatus(msg.message || '')
+            break
+
+          case 'vad':
+            if (onStatus) onStatus(msg.is_active ? '🎙️ 检测到语音...' : '')
+            break
+
+          case 'transcription':
+            // 支持两种格式：{text} 或 {stable, unstable}
+            const chunk = msg.text || ((msg.stable || '') + (msg.unstable || ''))
+            if (chunk.length > fullText.length) {
+              const delta = chunk.slice(fullText.length)
+              fullText = chunk
+              onChunk(delta)
+            } else if (chunk && chunk !== fullText) {
+              // 纠正文本替换（例如 AI 纠错后）
+              fullText = chunk
+              onChunk(chunk)
+            }
+            if (msg.is_final) {
+              onDone(msg.text || fullText)
+            }
+            if (onStatus) onStatus('')
+            break
+
+          case 'error':
+            onError(msg.message || '转译失败')
+            break
+
+          case 'done':
+            if (ws) ws.close()
+            break
+        }
+      } catch (e) {
+        // 忽略非 JSON
       }
     }
-  }).catch(err => {
-    if (err.name !== 'AbortError') onError(err.message || '连接失败')
-  })
+
+    ws.onerror = () => onError('WebSocket 连接失败')
+    ws.onclose = () => {}
+  } catch (e) {
+    onError('WebSocket 初始化失败: ' + e.message)
+  }
+
+  controller.abort = () => {
+    if (ws) { ws.close(); ws = null }
+  }
   return controller
 }
