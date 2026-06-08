@@ -590,7 +590,7 @@ const doTranscribe = (url) => {
     // onChunk
     (chunk) => {
       transcribeStatus[url] = ''
-      transcripts[url] = (transcripts[url] || '') + chunk
+      transcripts[url] = chunk  // segments arrive as complete lines, replace not append
     },
     // onDone
     (fullText) => {
