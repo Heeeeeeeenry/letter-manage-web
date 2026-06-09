@@ -651,6 +651,9 @@ onMounted(async () => {
   if (route.query.region) {
     filters.value.region = route.query.region
   }
+  if (route.query.view_mode === 'personal') {
+    viewMode.value = 'personal'
+  }
   await loadCategories()
   await loadLetters()
   document.addEventListener('click', handleClickOutside)

@@ -191,9 +191,65 @@ const router = useRouter()
 const userInfo = ref(null)
 const stats = ref({})
 
-const navToLetters = (status) => {
+// 统计卡片到信件列表的多状态映射（与 StatisticsView 完全一致）
+const getCardStatusMap = () => {
+  if (isCity()) {
+    return {
+      preprocessing: '1',
+      processing: '5,6,4,7,2,3,12,13',
+      pending_audit: '8,9',
+      done: '10',
+    }
+  } else {
+    return {
+      preprocessing: '1',
+      processing: '5,6,4,9,2,3,12,13',
+      pending_audit: '8,7',
+      done: '10',
+    }
+  }
+}
+
+// Chinese card label → English key
+const cardLabelToKey = {
+  '预处理': 'preprocessing',
+  '处理中': 'processing',
+  '待分县局/支队审核': 'pending_audit',
+  '已完成': 'done',
+}
+
+const navToLetters = (statusLabel) => {
   const query = {}
-  if (status) query.status = status
+  // 中文标签 → 多状态码映射（与统计分组一致）
+  if (statusLabel && statusLabel !== '') {
+    const key = cardLabelToKey[statusLabel]
+    const map = getCardStatusMap()
+    query.status = key ? (map[key] || statusLabel) : statusLabel
+  }
+  // 携带当前统计时间范围
+  if (currentPeriod.value !== 'all') {
+    const now = new Date()
+    // 使用本地时间格式化，避免 UTC 时区偏移导致日期错位
+    const fmt = (d) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+    const end = fmt(now)
+    let start = ''
+    switch (currentPeriod.value) {
+      case 'day': start = end; break
+      case 'week': { const d = new Date(now); d.setDate(d.getDate() - 6); start = fmt(d); break }
+      case 'month': { const d = new Date(now); d.setDate(d.getDate() - 29); start = fmt(d); break }
+      case 'year': { const d = new Date(now); d.setDate(d.getDate() - 364); start = fmt(d); break }
+    }
+    if (start) { query.start_time = start; query.end_time = end }
+  }
+  // 透传查看模式
+  if (isOfficer() || viewMode.value === 'personal') {
+    query.view_mode = 'personal'
+  }
   router.push({ name: 'letters', query })
 }
 const recentLetters = ref([])

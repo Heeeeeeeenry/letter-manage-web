@@ -144,7 +144,12 @@ const navToLetters = (status) => {
   // 携带当前统计时间范围（与后端 GetStatistics 的 period 计算一致）
   if (currentPeriod.value !== 'all') {
     const now = new Date()
-    const fmt = (d) => d.toISOString().slice(0, 10)
+    const fmt = (d) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
     const end = fmt(now)
     let start = ''
     switch (currentPeriod.value) {
@@ -157,6 +162,10 @@ const navToLetters = (status) => {
   }
   // 透传地区筛选
   if (selectedRegion.value) query.region = selectedRegion.value
+  // 透传查看模式
+  if (isOfficer() || viewMode.value === 'personal') {
+    query.view_mode = 'personal'
+  }
   router.push({ name: 'letters', query })
 }
 const viewMode = ref('unit')
