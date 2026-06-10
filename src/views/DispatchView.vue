@@ -529,8 +529,8 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import TypewriterText from '@/components/TypewriterText.vue'
 import { useUser } from '@/stores/user'
 
-const userStore = useUser()
-const isCityUser = computed(() => userStore.isCity())
+const { state: userState, loadUser, isCity, isDistrict, isOfficer } = useUser()
+const isCityUser = computed(() => isCity())
 
 // State
 const letters = ref([])
@@ -965,7 +965,7 @@ const selectLetter = async (letter) => {
   scrollDetailToTop()
 
   // 自动加载提示词并触发AI分析
-  loadDispatchPrompt()
+  await loadDispatchPrompt()
   setTimeout(() => {
     sendAIChatMessage('请帮我分析一下这封信件，给出分类和下发单位建议。')
   }, 300)
@@ -1470,8 +1470,14 @@ const acceptField = (field) => {
   // 从原始内容中重新解析并填充
   const content = fields[field]?.content
   if (!content) return
-  // 清理标记符号
-  const clean = (s) => s.replace(/[*]+/g, '').replace(/[「」""""【】]/g, '').trim()
+  // 清理标记符号和AI噪声
+  const clean = (s) => s
+    .replace(/^建议[：:]\s*/, '')
+    .replace(/建议维持|保持不变|维持现状/g, '')
+    .replace(/[*]+/g, '')
+    .replace(/[「」""""【】（）)。，、\n]/g, '')
+    .replace(/\/\s*$/g, '')
+    .trim()
   if (field === 'category') {
     const parts = clean(content).split('/').map(p => p.trim())
     if (parts.length >= 1) form.value.categoryL1 = parts[0]
@@ -1637,6 +1643,7 @@ const loadFocusList = async () => {
 }
 
 onMounted(async () => {
+  await loadUser()
   await Promise.all([loadData(), loadCategories(), loadUnits(), loadFocusList()])
   if (sortedLetters.value.length > 0) {
     selectLetter(sortedLetters.value[0])
