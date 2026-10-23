@@ -576,7 +576,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick, reactive } from 'vue'
-import { getProcessingList, getDetail, submitProcessing, returnLetter, markInvalid, analyzeLetter, getCategories, getByIdcard, transcribeAudioStream } from '@/api/letter'
+import { getProcessingList, getDetail, submitProcessing, returnLetter, markInvalid, analyzeLetter, getCategories, getByIdcard, transcribeAudio } from '@/api/letter'
 import { normalizeFlowRecords } from '@/utils/flow'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TypewriterText from '@/components/TypewriterText.vue'
@@ -636,7 +636,6 @@ const transcripts = reactive({})
 const transcribing = reactive({})
 const transcribeErrors = reactive({})
 const transcribeStatus = reactive({})
-let activeStreamController = null
 
 // SenseVoice 风格：按换行分行，按句末标点切段落
 const splitLines = (text) => {
@@ -663,28 +662,22 @@ watch(() => ({ ...transcripts }), () => {
   }
 }, { deep: true, immediate: true })
 
-const doTranscribe = (url) => {
+const doTranscribe = async (url) => {
   if (transcribing[url]) return
   transcribing[url] = true
   delete transcribeErrors[url]
   if (!transcripts[url]) transcripts[url] = ''
+  transcribeStatus[url] = '🎙️ 正在转译...'
 
-  activeStreamController = transcribeAudioStream(url,
-    (chunk) => {
-      transcribeStatus[url] = ''
-      transcripts[url] = (transcripts[url] || '') + chunk  // accumulate segments
-    },
-    (fullText) => {
-      transcribeStatus[url] = ''
-      if (fullText && !transcripts[url]) transcripts[url] = fullText
-      transcribing[url] = false
-    },
-    (err) => {
-      transcribeErrors[url] = '转写失败: ' + err
-      transcribing[url] = false
-    },
-    (msg) => { transcribeStatus[url] = msg }
-  )
+  try {
+    const res = await transcribeAudio(url)
+    transcripts[url] = res.data || ''
+  } catch (e) {
+    transcribeErrors[url] = '转写失败: ' + (e.message || e)
+  } finally {
+    transcribing[url] = false
+    transcribeStatus[url] = ''
+  }
 }
 
 // Files display
@@ -1308,10 +1301,6 @@ onUnmounted(() => {
   if (removeScrollSpy) removeScrollSpy()
   if (pollTimer) clearInterval(pollTimer)
   if (processingTimer) clearInterval(processingTimer)
-  if (activeStreamController) {
-    activeStreamController.abort()
-    activeStreamController = null
-  }
 })
 </script>
 

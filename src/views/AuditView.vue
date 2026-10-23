@@ -318,7 +318,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, reactive, watch } from 'vue'
-import { getAuditList, getDetail, auditApprove, auditReject, transcribeAudio, transcribeAudioStream } from '@/api/letter'
+import { getAuditList, getDetail, auditApprove, auditReject, transcribeAudio } from '@/api/letter'
 import { normalizeFlowRecords } from '@/utils/flow'
 import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -340,7 +340,6 @@ const confirmBtn = ref('确定')
 const confirmType = ref('danger')
 let confirmCallback = null
 let pollTimer = null
-let activeStreamController = null
 
 const flowRecords = computed(() => selectedLetter.value?.['流转记录'] || [])
 
@@ -401,35 +400,21 @@ watch(() => ({ ...transcripts }), () => {
   }
 }, { deep: true, immediate: true })
 
-const doTranscribe = (url) => {
+const doTranscribe = async (url) => {
   if (transcribing[url]) return
   transcribing[url] = true
   delete transcribeErrors[url]
-  // 不删除已有 transcripts，错误时保留已转写的内容
-  if (!transcripts[url]) transcripts[url] = ''
+  transcribeStatus[url] = '🎙️ 正在转译...'
 
-  activeStreamController = transcribeAudioStream(url,
-    // onChunk: 逐句追加
-    (chunk) => {
-      transcribeStatus[url] = ''
-      transcripts[url] = (transcripts[url] || '') + chunk  // accumulate segments
-    },
-    // onDone: 完成
-    (fullText) => {
-      transcribeStatus[url] = ''
-      if (fullText && !transcripts[url]) transcripts[url] = fullText
-      transcribing[url] = false
-    },
-    // onError
-    (err) => {
-      transcribeErrors[url] = '转写失败: ' + err
-      transcribing[url] = false
-    },
-    // onStatus: 显示进度
-    (msg) => {
-      transcribeStatus[url] = msg
-    }
-  )
+  try {
+    const res = await transcribeAudio(url)
+    transcripts[url] = res.data || ''
+  } catch (e) {
+    transcribeErrors[url] = '转写失败: ' + (e.message || e)
+  } finally {
+    transcribing[url] = false
+    transcribeStatus[url] = ''
+  }
 }
 
 const auditFileGroups = computed(() => {

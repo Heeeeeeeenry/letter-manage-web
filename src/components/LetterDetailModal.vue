@@ -349,7 +349,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, reactive } from 'vue'
-import { getDetail, transcribeAudio, transcribeAudioStream } from '@/api/letter'
+import { getDetail, transcribeAudio } from '@/api/letter'
 import { normalizeFlowRecords } from '@/utils/flow'
 import { channelName, statusName } from '@/utils/mappings'
 import StatusBadge from './StatusBadge.vue'
@@ -429,28 +429,22 @@ watch(() => ({ ...transcripts }), () => {
   }
 }, { deep: true, immediate: true })
 
-const doTranscribe = (url) => {
+const doTranscribe = async (url) => {
   if (transcribing[url]) return
   transcribing[url] = true
   delete transcribeErrors[url]
   if (!transcripts[url]) transcripts[url] = ''
+  transcribeStatus[url] = '🎙️ 正在转译...'
 
-  transcribeAudioStream(url,
-    (chunk) => {
-      transcribeStatus[url] = ''
-      transcripts[url] = (transcripts[url] || '') + chunk  // accumulate segments
-    },
-    (fullText) => {
-      transcribeStatus[url] = ''
-      if (fullText && !transcripts[url]) transcripts[url] = fullText
-      transcribing[url] = false
-    },
-    (err) => {
-      transcribeErrors[url] = '转写失败: ' + err
-      transcribing[url] = false
-    },
-    (msg) => { transcribeStatus[url] = msg }
-  )
+  try {
+    const res = await transcribeAudio(url)
+    transcripts[url] = res.data || ''
+  } catch (e) {
+    transcribeErrors[url] = '转写失败: ' + (e.message || e)
+  } finally {
+    transcribing[url] = false
+    transcribeStatus[url] = ''
+  }
 }
 
 const fileGroups = computed(() => ({

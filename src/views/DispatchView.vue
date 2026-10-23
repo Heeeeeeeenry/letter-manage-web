@@ -522,7 +522,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, reactive, watch } from 'vue'
-import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi, setSpecialFocus, transcribeAudioStream } from '@/api/letter'
+import { getDispatchList, dispatch, markInvalid, getDetail, analyzeLetter, autoDispatch, handleBySelf as handleBySelfApi, setSpecialFocus, transcribeAudio } from '@/api/letter'
 import { getDispatchUnits, getSpecialFocusList, getUsersInUnit } from '@/api/setting'
 import { statusName } from '@/utils/mappings'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -545,7 +545,6 @@ const showDispatchModal = ref(false)
 const showRemarkModalWindow = ref(false)
 const autoDispatchEnabled = ref(false)
 let pollTimer = null
-let activeStreamController = null
 
 // 音频转文字
 const transcripts = reactive({})
@@ -579,33 +578,21 @@ watch(() => ({ ...transcripts }), () => {
   }
 }, { deep: true, immediate: true })
 
-const doTranscribe = (url) => {
+const doTranscribe = async (url) => {
   if (transcribing[url]) return
   transcribing[url] = true
   delete transcribeErrors[url]
-  // 不删除已有 transcripts，错误时保留已转写的内容
-  if (!transcripts[url]) transcripts[url] = ''
+  transcribeStatus[url] = '🎙️ 正在转译...'
 
-  activeStreamController = transcribeAudioStream(url,
-    // onChunk
-    (chunk) => {
-      transcribeStatus[url] = ''
-      transcripts[url] = (transcripts[url] || '') + chunk  // accumulate segments
-    },
-    // onDone
-    (fullText) => {
-      transcribeStatus[url] = ''
-      if (fullText && !transcripts[url]) transcripts[url] = fullText
-      transcribing[url] = false
-    },
-    // onError
-    (err) => {
-      transcribeErrors[url] = '转写失败: ' + err
-      transcribing[url] = false
-    },
-    // onStatus
-    (msg) => { transcribeStatus[url] = msg }
-  )
+  try {
+    const res = await transcribeAudio(url)
+    transcripts[url] = res.data || ''
+  } catch (e) {
+    transcribeErrors[url] = '转写失败: ' + (e.message || e)
+  } finally {
+    transcribing[url] = false
+    transcribeStatus[url] = ''
+  }
 }
 
 // Files display
@@ -1656,10 +1643,6 @@ onUnmounted(() => {
   if (chatAbortController) {
     chatAbortController.abort()
     chatAbortController = null
-  }
-  if (activeStreamController) {
-    activeStreamController.abort()
-    activeStreamController = null
   }
 })
 </script>
